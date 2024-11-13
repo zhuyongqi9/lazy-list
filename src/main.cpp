@@ -1,4 +1,3 @@
-#include <__filesystem/recursive_directory_iterator.h>
 #include <filesystem>
 #include <system_error>
 #include <vector>
@@ -6,6 +5,7 @@
 #include <fmt/core.h>
 #include <iostream>
 #include <fmt/color.h>
+#include <spdlog/spdlog.h>
 
 std::error_code FAILED_OPEN_FILE;
 
@@ -22,30 +22,35 @@ std::vector<std::filesystem::directory_entry> search_file(std::string &name, std
     auto file = std::filesystem::recursive_directory_iterator(path, std::filesystem::directory_options::skip_permission_denied);
     std::vector<std::filesystem::directory_entry> res(0);
 
+    try {
+        for(auto it = file; it != std::filesystem::end(file); it++) {
+            const std::filesystem::directory_entry &entry = *it;
+            std::string file_name = entry.path().filename().string();
+            if (skipped(file_name)) {
+                it.disable_recursion_pending();
+                continue;
+            }
 
-    for(auto it = file; it != std::filesystem::end(file); it++) {
-        const std::filesystem::directory_entry &entry = *it;
-        std::string file_name = entry.path().filename().string();
-        if (skipped(file_name)) {
-            it.disable_recursion_pending();
-            continue;
+            if (file_name.size() > 0 && file_name[0] == '.') {
+                //fmt::print(fmt::bg(fmt::color::red), file_name);
+                //fmt::print("\n");
+                it.disable_recursion_pending();
+                continue;
+            }
+            //fmt::println(entry.path().string());
+            if (file_name.find(name) == 0) {
+                res.push_back(entry);
+            }
         }
-
-        if (file_name.size() > 0 && file_name[0] == '.') {
-            //fmt::print(fmt::bg(fmt::color::red), file_name);
-            //fmt::print("\n");
-            it.disable_recursion_pending();
-            continue;
-        }
-        //fmt::println(entry.path().string());
-        if (file_name.find(name) == 0) {
-            res.push_back(entry);
-        }
+    } catch (const std::filesystem::filesystem_error &e) {
+        spdlog::error(e.what());
     }
     return res;
 }
 
+
 int main() {
+    spdlog::set_level(spdlog::level::debug);
     std::string cur_dir = "/Users/zhuyongqi/Projects"; 
 
     while(true) {

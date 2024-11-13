@@ -1,14 +1,18 @@
+#include <exception>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/dom/node.hpp>
 #include <ftxui/dom/table.hpp>
+#include <ftxui/component/event.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <ftxui/component/component.hpp>
 #include <filesystem>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <memory>
+#include <string_view>
 #include <vector>
 
 std::vector<std::string> skipped_file = {
@@ -62,48 +66,73 @@ std::vector<std::filesystem::directory_entry> list_all(std::filesystem::path pat
 }
 
 using namespace ftxui;
-Component list_view(std::filesystem::path current) {
-    
+
+Component list_view(std::filesystem::path &current) {
+    auto files = std::make_shared<std::vector<std::filesystem::directory_entry>>(list_all(current));
+    auto string_view = std::make_shared<std::vector<std::string>>();
+
+    std::shared_ptr<int> selected = std::make_shared<int>(0);
+
+    string_view->push_back("..");
+    for (auto &file : *files) {
+        string_view->push_back(file.path().filename().string());
+    }
+
+    MenuOption option;
+    option.on_enter = [&current, files, string_view, selected]()mutable {
+        if (*selected == 0) {
+            current = current.parent_path();
+            files.reset(new std::vector<std::filesystem::directory_entry>(list_all(current)));
+            string_view->clear();
+            string_view->push_back("..");
+            for (auto &file : *files) {
+                string_view->push_back(file.path().filename().string());
+            }
+        } else {
+            std::filesystem::directory_entry selected_entry = (*files)[*selected-1];
+            if (selected_entry.is_directory()) {
+                current = selected_entry.path();
+                files.reset(new std::vector<std::filesystem::directory_entry>(list_all(current)));
+                string_view->clear();
+                string_view->push_back("..");
+                for (auto &file : *files) {
+                    string_view->push_back(file.path().filename().string());
+                }
+            }
+        }
+    };
+
+    auto entry = Menu(string_view.get(), selected.get(), option);
+    return entry;
 }
 
+
 int main() {
+    auto screen = ScreenInteractive::Fullscreen(); 
 
     std::string target_file;
     Component input_target_file = Input(&target_file, "", InputOption::Default());
 
     std::filesystem::path current =  std::filesystem::current_path();
+    std::vector<std::filesystem::directory_entry> files;
 
-
-    auto files = list_all(current);
-    std::vector<std::string> string_view;
-    for (auto &file : files) {
-        string_view.push_back(file.path().filename().string());
-    }
 
     int selected = 0;
-    MenuOption option;
-    option.on_enter = [&current, &files, &selected]()mutable {
-        std::filesystem::directory_entry selected_entry = files[selected];
-        if (selected_entry.is_directory()) {
-            current = files[selected].path();
-        }
-    };
-    auto entry = Menu(string_view, &selected, option);
+    auto view = list_view(current);
 
-    Component container = Container::Vertical({
+
+    Component container = Container::Stacked({
+        view
     });
 
-    std::vector<Component> fixed_component = {
-        input_target_file
-    };
 
     auto component = Renderer(container, [&] {
-        container->Add(fixed_component[0]);
-        container->Add(entry);
-        string_view.clear();
-        for (auto &file : files) {
-            string_view.push_back(file.path().filename().string());
-        }
+
+        //if (target_file.size() > 0) {
+        //    view->Detach();
+        //    view = list_view(current);
+        //    container->Add(view);
+        //}
 
         return gridbox({
             {
@@ -112,14 +141,21 @@ int main() {
             {
                 window(text("Target File"), input_target_file->Render())
             }, {
-                entry->Render()
-            } ,{
-                text(fmt::format("{}", selected))
-            }
+                view->Render()            
+            }, {
+                text("q: quit") | border
+            }         
         });
     });
 
-    auto screen = ScreenInteractive::Fullscreen(); 
-    screen.Loop(component);
+    component |= CatchEvent([&](Event event) {
+        if (event == Event::Character('q')) {
+          screen.ExitLoopClosure()();
+          return true;
+        }
+        return false;
+    });
 
+
+    screen.Loop(component);
 }

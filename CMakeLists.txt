@@ -10,7 +10,29 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(fmt)
 
-set(CMAKE_CXX_STANDARD 17)
+include(FetchContent)
+set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
+FetchContent_Declare(ftxui
+  GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
+  GIT_TAG main # Important: Specify a version or a commit hash here.
+)
+FetchContent_MakeAvailable(ftxui)
 
+set(CMAKE_CXX_STANDARD 17)
+if(NOT TARGET spdlog)
+    # Stand-alone build
+    find_package(spdlog REQUIRED)
+endif()
+
+
+link_libraries(spdlog::spdlog_header_only)
 link_libraries(fmt::fmt)
+
 add_executable(main src/main.cpp)
+
+add_executable(window src/window.cpp)
+target_link_libraries(window
+  PRIVATE ftxui::screen
+  PRIVATE ftxui::dom
+  PRIVATE ftxui::component # Not needed for this example.
+)
