@@ -157,6 +157,7 @@ int main() {
             res = list_all(current); 
             files.clear();
             string_view.clear();
+            string_view.push_back("..");
             for (auto &item : res)  {
                 files.push_back(item);
                 string_view.push_back(item.path().filename().string());
@@ -171,7 +172,7 @@ int main() {
             {
                 window(text("Target File"), input_target_file->Render()) 
             }, {
-                view->Render() | frame | size(HEIGHT, LESS_THAN, 10) 
+                view->Render() | frame | size(HEIGHT, LESS_THAN, 20) 
             }, {
                 text(fmt::format("a: {}", a)) | border
             },{
