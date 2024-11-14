@@ -6,6 +6,7 @@
 #include <ftxui/dom/node.hpp>
 #include <ftxui/dom/table.hpp>
 #include <ftxui/component/event.hpp>
+#include <ftxui/screen/color.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <ftxui/component/component.hpp>
 #include <filesystem>
@@ -79,7 +80,29 @@ Component list_view(std::filesystem::path &current, std::vector<std::filesystem:
         string_view.push_back(file.path().filename().string());
     }
 
-    MenuOption option;
+    MenuOption option = MenuOption::Vertical();
+    option.entries_option.transform = [] (EntryState state) {
+        Element e = text((state.active ? "> " : "  ") + state.label);  // NOLINT
+        if (state.focused) {
+          e |= inverted;
+        }
+        if (state.active) {
+          e |= bold;
+        }
+        if (!state.focused && !state.active) {
+          //e |= dim;
+        } 
+
+        try {
+            if (std::filesystem::directory_entry(state.label).is_directory()) {
+                e |= color(Color::Green);
+            }
+        } catch (std::filesystem::filesystem_error &e) {
+
+        }
+        return e;
+    };
+
     option.on_enter = [&current, &files, &string_view, selected]()mutable {
         if (*selected == 0) {
             current = current.parent_path();
@@ -104,6 +127,7 @@ Component list_view(std::filesystem::path &current, std::vector<std::filesystem:
     };
 
     auto entry = Menu(&string_view, selected.get(), option);
+
     return entry;
 }
 
