@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <exception>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
@@ -26,9 +27,21 @@ bool skipped(std::string &path) {
     return false;
 }
 
-std::vector<std::filesystem::directory_entry> search_file(std::string &name, std::filesystem::path &path) {
+enum options {
+    regex,
+    caseignored,
+};
+
+std::vector<std::filesystem::directory_entry> search_file(std::string &name, std::filesystem::path &path, options option) {
     auto file = std::filesystem::recursive_directory_iterator(path, std::filesystem::directory_options::skip_permission_denied);
     std::vector<std::filesystem::directory_entry> res(0);
+    auto target = name;
+
+    if (option & caseignored) {
+        std::for_each(target.begin(), target.end(), [](char &c) {
+            c = std::toupper(c);
+        });
+    }
 
     try {
         for(auto it = file; it != std::filesystem::end(file); it++) {
@@ -37,16 +50,21 @@ std::vector<std::filesystem::directory_entry> search_file(std::string &name, std
             if (skipped(file_name)) {
                 it.disable_recursion_pending();
                 continue;
-            }
-
-            if (file_name.size() > 0 && file_name[0] == '.') {
+            } else if (file_name.size() > 0 && file_name[0] == '.') {
                 //fmt::print(fmt::bg(fmt::color::red), file_name);
                 //fmt::print("\n");
                 it.disable_recursion_pending();
                 continue;
             }
+
+            if (option & caseignored) {
+                std::for_each(file_name.begin(), file_name.end(), [](char &c) {
+                    c = std::toupper(c);
+                });
+            }
+
             //fmt::println(entry.path().string());
-            if (file_name.find(name) == 0) {
+            if (file_name.find(target) == 0) {
                 res.push_back(entry);
             }
         }
@@ -55,6 +73,7 @@ std::vector<std::filesystem::directory_entry> search_file(std::string &name, std
     }
     return res;
 }
+
 
 
 std::vector<std::filesystem::directory_entry> list_all(std::filesystem::path path) {
@@ -83,6 +102,15 @@ Component list_view(std::filesystem::path &current, std::vector<std::filesystem:
     MenuOption option = MenuOption::Vertical();
     option.entries_option.transform = [&] (EntryState state) {
         Element e = text((state.active ? "> " : "  ") + state.label);  // NOLINT
+
+        try {
+            if (std::filesystem::directory_entry(current / state.label).is_directory()) {
+                e |= color(Color::Green);
+            }
+        } catch (std::filesystem::filesystem_error &e) {
+
+        }
+
         if (state.focused) {
           e |= inverted;
         }
@@ -93,13 +121,6 @@ Component list_view(std::filesystem::path &current, std::vector<std::filesystem:
           //e |= dim;
         } 
 
-        try {
-            if (std::filesystem::directory_entry(current / state.label).is_directory()) {
-                e |= color(Color::Green);
-            }
-        } catch (std::filesystem::filesystem_error &e) {
-
-        }
         return e;
     };
 
@@ -148,12 +169,12 @@ int main() {
     std::string target_file;
     Component input_target_file = Input(&target_file, "", InputOption::Default());
     input_target_file |= CatchEvent([&](Event event) {
-        if (!input_target_file->Focused()) return true;
+//        if (!input_target_file->Focused()) return true;
         return false;
     });
 
 
-    Component container = Container::Stacked({
+    Component container = Container::Vertical({
         input_target_file,
         view
     });
@@ -171,7 +192,7 @@ int main() {
         
 
         if (target_file.size() > 0) {
-            res = search_file(target_file, current);
+            res = search_file(target_file, current, options::caseignored);
             files.clear();
             string_view.clear();
             for (auto &item : res)  {
@@ -189,6 +210,7 @@ int main() {
             }
         }
 
+        std::string title = target_file.size() > 0 ? "Search Results" : "Files";
 
         return gridbox({
             {
@@ -197,7 +219,7 @@ int main() {
             {
                 window(text("Target File"), input_target_file->Render()) 
             }, {
-                view->Render() | frame | size(HEIGHT, LESS_THAN, 20) 
+                window(text(title), view->Render() | frame | size(HEIGHT, LESS_THAN, 20))
             }, {
                 text(fmt::format("a: {}", a)) | border
             },{
