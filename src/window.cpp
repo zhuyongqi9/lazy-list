@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <regex>
 #include <exception>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
@@ -27,12 +28,14 @@ bool skipped(std::string &path) {
     return false;
 }
 
+
+
 enum options {
-    regex,
-    caseignored,
+    regex = 1 << 1,
+    caseignored = 1 << 2,
 };
 
-std::vector<std::filesystem::directory_entry> search_file(std::string &name, std::filesystem::path &path, options option) {
+std::vector<std::filesystem::directory_entry> search_file(std::string &name, std::filesystem::path &path, int option) {
     auto file = std::filesystem::recursive_directory_iterator(path, std::filesystem::directory_options::skip_permission_denied);
     std::vector<std::filesystem::directory_entry> res(0);
     auto target = name;
@@ -63,17 +66,24 @@ std::vector<std::filesystem::directory_entry> search_file(std::string &name, std
                 });
             }
 
-            //fmt::println(entry.path().string());
-            if (file_name.find(target) == 0) {
-                res.push_back(entry);
+            if (option & regex) {
+                std::regex pattern(name);
+                if (std::regex_match(file_name, pattern)) {
+                    res.push_back(entry);
+                }
+            } else {
+                if (file_name.find(target) == 0) {
+                    res.push_back(entry);
+                }
             }
         }
     } catch (const std::filesystem::filesystem_error &e) {
         
+    } catch (const std::regex_error &e) {
+
     }
     return res;
 }
-
 
 
 std::vector<std::filesystem::directory_entry> list_all(std::filesystem::path path) {
@@ -173,9 +183,67 @@ int main() {
         return false;
     });
 
+    bool button_case_ignored_clicked = true;
+    ButtonOption option1 = ButtonOption::Animated();
+    option1.transform = [&](const EntryState& s) {
+        auto element = text(s.label);
+        if (s.focused) {
+          element |= bold;
+          element |= color(Color::Red);
+        }
+
+        if (button_case_ignored_clicked) {
+          element |= color(Color::Green);
+        }
+        //return element | center | borderEmpty | flex;
+        return element | center;
+    };
+    option1.animated_colors.background.Set(Color(), Color());
+    Component button_case_ignored = Button ("Aa", [&] {
+        button_case_ignored_clicked = !button_case_ignored_clicked;
+    }, option1);
+
+    bool button_regex_clicked = false;
+    ButtonOption option2 = ButtonOption::Animated();
+    option2.transform = [&](const EntryState& s) {
+        auto element = text(s.label);
+        if (s.focused) {
+          element |= bold;
+          element |= color(Color::Red);
+        }
+        if (button_regex_clicked) 
+          element |= color(Color::Green);
+        //return element | center | borderEmpty | flex;
+        return element | center;
+    };
+    option2.animated_colors.background.Set(Color(), Color());
+    Component button_regex = Button(".*", [&]{
+        button_regex_clicked = !button_regex_clicked;
+    }, option2);
+
+
+    int serach_button_selected;
+
+    Component search_button_container = Container::Horizontal({
+        input_target_file,
+        button_case_ignored,
+        button_regex,
+    });
+
+    Component input_search = Renderer(search_button_container, [&](){
+        auto renderer_button_case_ignored = button_case_ignored->Render() | size(ftxui::WIDTH, ftxui::EQUAL, 3);
+        auto renderer_button_regex = button_regex->Render() | size(ftxui::WIDTH, ftxui::EQUAL, 3);
+
+        return flexbox({ 
+            input_target_file->Render(),
+            renderer_button_case_ignored,
+            renderer_button_regex,
+        });
+    });
+
 
     Component container = Container::Vertical({
-        input_target_file,
+        input_search,
         view
     });
 
@@ -192,7 +260,10 @@ int main() {
         
 
         if (target_file.size() > 0) {
-            res = search_file(target_file, current, options::caseignored);
+            int options;
+            if (button_regex_clicked) options |= options::regex;
+            else if (button_case_ignored_clicked)  options |= options::caseignored;
+            res = search_file(target_file, current,  options);
             files.clear();
             string_view.clear();
             for (auto &item : res)  {
@@ -217,11 +288,11 @@ int main() {
                 text(fmt::format("Current Dir: {}", current.string())) | bold
             },
             {
-                window(text("Target File"), input_target_file->Render()) 
+                window(text("Target File"), input_search->Render()) 
             }, {
                 window(text(title), view->Render() | frame | size(HEIGHT, LESS_THAN, 20))
             }, {
-                text(fmt::format("a: {}", a)) | border
+                text(fmt::format("a: {}", button_regex_clicked)) | border
             },{
                 text(fmt::format("target: {}", target_file)) | border
             }         
