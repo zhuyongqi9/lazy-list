@@ -1,0 +1,1 @@
+const std::string M_PARENT_PATH(".. (parent_path)");

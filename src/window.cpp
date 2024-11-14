@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstdint>
 #include <regex>
 #include <exception>
 #include <ftxui/component/component_base.hpp>
@@ -18,6 +19,60 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "MESSAGE.h"
+uint64_t directory_size(std::filesystem::path path) {
+    auto it = std::filesystem::recursive_directory_iterator(path);
+    uint64_t res = 0;
+    for (auto start = it; it != std::filesystem::end(it); it++) {
+        if (it->is_regular_file())
+            res += (*it).file_size();
+    }
+    return res;
+}
+
+std::string formatted_file_size(std::filesystem::path path) {
+    try {
+        auto entry = std::filesystem::directory_entry(path);
+        uint64_t size;
+        if (entry.is_regular_file()) {
+            size = entry.file_size();
+        } else if (entry.is_directory()) {
+            size = directory_size(path);
+        } else {
+            size = 0;
+        }
+        if (size < 1024) {
+        // Byte
+            return fmt::format("{:>8} B", size);
+        } else if (size < 1024 * 1024) {
+        // KB
+            double res = size / 1024.0;
+            return fmt::format("{:>8.2f}KB", res);
+        } else if (size < 1024 * 1024 * 1024) {
+        // MB
+            double res = size / 1024.0 / 1024;
+            return fmt::format("{:>8.2f}MB", res);
+        } else {
+        //GB
+            double res = size / 1024.0 / 1024 / 1024;
+            return fmt::format("{:>8.2f}GB", res);
+        }
+    } catch (const std::exception &e) {
+        //return fmt::format("{:>6}NULL", e.what());
+        return fmt::format("{:>6}NULL", "");
+    }
+}
+
+std::string file_view_string(std::filesystem::path path, bool full_path = false) {
+    std::string size = formatted_file_size(path);
+    if (full_path) {
+        return fmt::format("{:<32} {}", path.string(), size);
+    } else {
+        return fmt::format("{:<32} {}", path.filename().string(), size);
+    }
+}
+
+
 
 std::vector<std::string> skipped_file = {
     "Photos Library.photoslibrary",
@@ -54,8 +109,6 @@ std::vector<std::filesystem::directory_entry> search_file(std::string &name, std
                 it.disable_recursion_pending();
                 continue;
             } else if (file_name.size() > 0 && file_name[0] == '.') {
-                //fmt::print(fmt::bg(fmt::color::red), file_name);
-                //fmt::print("\n");
                 it.disable_recursion_pending();
                 continue;
             }
@@ -104,18 +157,17 @@ using namespace ftxui;
 Component list_view(std::filesystem::path &current, std::vector<std::filesystem::directory_entry> &files, std::vector<std::string> &string_view) {
     std::shared_ptr<int> selected = std::make_shared<int>(0);
 
-    string_view.push_back("..");
-    for (auto &file : files) {
-        string_view.push_back(file.path().filename().string());
-    }
-
     MenuOption option = MenuOption::Vertical();
     option.entries_option.transform = [&] (EntryState state) {
         Element e = text((state.active ? "> " : "  ") + state.label);  // NOLINT
 
         try {
-            if (std::filesystem::directory_entry(current / state.label).is_directory()) {
+            if (state.index == 0) {
                 e |= color(Color::Green);
+            } else {
+                if (files[state.index-1].is_directory()) {
+                    e |= color(Color::Green);
+                }
             }
         } catch (std::filesystem::filesystem_error &e) {
 
@@ -139,9 +191,9 @@ Component list_view(std::filesystem::path &current, std::vector<std::filesystem:
             current = current.parent_path();
             files = std::vector<std::filesystem::directory_entry>(list_all(current));
             string_view.clear();
-            string_view.push_back("..");
+            string_view.push_back(M_PARENT_PATH);
             for (auto &file : files) {
-                string_view.push_back(file.path().filename().string());
+                string_view.push_back(file_view_string(file.path()));
             }
         } else {
             std::filesystem::directory_entry selected_entry = (files)[*selected-1];
@@ -149,9 +201,9 @@ Component list_view(std::filesystem::path &current, std::vector<std::filesystem:
                 current = selected_entry.path();
                 files = std::vector<std::filesystem::directory_entry>(list_all(current));
                 string_view.clear();
-                string_view.push_back("..");
+                string_view.push_back(M_PARENT_PATH);
                 for (auto &file : files) {
-                    string_view.push_back(file.path().filename().string());
+                    string_view.push_back(file_view_string(file.path()));
                 }
             }
         }
@@ -163,6 +215,7 @@ Component list_view(std::filesystem::path &current, std::vector<std::filesystem:
 }
 
 
+
 int main() {
     auto screen = ScreenInteractive::Fullscreen(); 
 
@@ -170,6 +223,8 @@ int main() {
     std::filesystem::path current =  std::filesystem::current_path();
     std::vector<std::filesystem::directory_entry> files = list_all(current);
     std::vector<std::string> string_view;
+    string_view.push_back(M_PARENT_PATH);
+    for (auto &item : files) string_view.push_back(file_view_string(item.path()));
 
 
     int selected = 0;
@@ -268,16 +323,16 @@ int main() {
             string_view.clear();
             for (auto &item : res)  {
                 files.push_back(item);
-                string_view.push_back(item.path().string());
+                string_view.push_back(file_view_string(item.path(), true));
             }
         } else if (target_file.size() == 0) {
             res = list_all(current); 
             files.clear();
             string_view.clear();
-            string_view.push_back("..");
+            string_view.push_back(M_PARENT_PATH);
             for (auto &item : res)  {
                 files.push_back(item);
-                string_view.push_back(item.path().filename().string());
+                string_view.push_back(file_view_string(item.path()));
             }
         }
 
@@ -309,4 +364,5 @@ int main() {
 
 
     screen.Loop(component);
+    return 0;
 }
