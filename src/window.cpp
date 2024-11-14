@@ -12,6 +12,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -58,51 +59,51 @@ std::vector<std::filesystem::directory_entry> search_file(std::string &name, std
 std::vector<std::filesystem::directory_entry> list_all(std::filesystem::path path) {
     auto start = std::filesystem::directory_iterator(path, std::filesystem::directory_options::skip_permission_denied);
     std::vector<std::filesystem::directory_entry> res;
-    for (auto it = start; it != std::filesystem::end(start); it++) {
-        auto entry = *it;
-        res.push_back(entry);
+    try {
+        for (auto it = start; it != std::filesystem::end(start); it++) {
+            auto entry = *it;
+            res.push_back(entry);
+        }
+    } catch (std::filesystem::filesystem_error &e) {
     }
     return res;
 }
 
 using namespace ftxui;
 
-Component list_view(std::filesystem::path &current) {
-    auto files = std::make_shared<std::vector<std::filesystem::directory_entry>>(list_all(current));
-    auto string_view = std::make_shared<std::vector<std::string>>();
-
+Component list_view(std::filesystem::path &current, std::vector<std::filesystem::directory_entry> &files, std::vector<std::string> &string_view) {
     std::shared_ptr<int> selected = std::make_shared<int>(0);
 
-    string_view->push_back("..");
-    for (auto &file : *files) {
-        string_view->push_back(file.path().filename().string());
+    string_view.push_back("..");
+    for (auto &file : files) {
+        string_view.push_back(file.path().filename().string());
     }
 
     MenuOption option;
-    option.on_enter = [&current, files, string_view, selected]()mutable {
+    option.on_enter = [&current, &files, &string_view, selected]()mutable {
         if (*selected == 0) {
             current = current.parent_path();
-            files.reset(new std::vector<std::filesystem::directory_entry>(list_all(current)));
-            string_view->clear();
-            string_view->push_back("..");
-            for (auto &file : *files) {
-                string_view->push_back(file.path().filename().string());
+            files = std::vector<std::filesystem::directory_entry>(list_all(current));
+            string_view.clear();
+            string_view.push_back("..");
+            for (auto &file : files) {
+                string_view.push_back(file.path().filename().string());
             }
         } else {
-            std::filesystem::directory_entry selected_entry = (*files)[*selected-1];
+            std::filesystem::directory_entry selected_entry = (files)[*selected-1];
             if (selected_entry.is_directory()) {
                 current = selected_entry.path();
-                files.reset(new std::vector<std::filesystem::directory_entry>(list_all(current)));
-                string_view->clear();
-                string_view->push_back("..");
-                for (auto &file : *files) {
-                    string_view->push_back(file.path().filename().string());
+                files = std::vector<std::filesystem::directory_entry>(list_all(current));
+                string_view.clear();
+                string_view.push_back("..");
+                for (auto &file : files) {
+                    string_view.push_back(file.path().filename().string());
                 }
             }
         }
     };
 
-    auto entry = Menu(string_view.get(), selected.get(), option);
+    auto entry = Menu(&string_view, selected.get(), option);
     return entry;
 }
 
@@ -110,18 +111,25 @@ Component list_view(std::filesystem::path &current) {
 int main() {
     auto screen = ScreenInteractive::Fullscreen(); 
 
-    std::string target_file;
-    Component input_target_file = Input(&target_file, "", InputOption::Default());
 
     std::filesystem::path current =  std::filesystem::current_path();
-    std::vector<std::filesystem::directory_entry> files;
+    std::vector<std::filesystem::directory_entry> files = list_all(current);
+    std::vector<std::string> string_view;
 
 
     int selected = 0;
-    auto view = list_view(current);
+    auto view = list_view(current, files, string_view);
+    int a = 0;
+
+    std::string target_file;
+    Component input_target_file = Input(&target_file, "", InputOption::Default());
+    input_target_file |= CatchEvent([&](Event event) {
+        return false;
+    });
 
 
     Component container = Container::Stacked({
+        input_target_file,
         view
     });
 
@@ -134,16 +142,40 @@ int main() {
         //    container->Add(view);
         //}
 
+        std::vector<std::filesystem::directory_entry> res;
+        
+
+        if (target_file.size() > 0) {
+            res = search_file(target_file, current);
+            files.clear();
+            string_view.clear();
+            for (auto &item : res)  {
+                files.push_back(item);
+                string_view.push_back(item.path().string());
+            }
+        } else if (target_file.size() == 0) {
+            res = list_all(current); 
+            files.clear();
+            string_view.clear();
+            for (auto &item : res)  {
+                files.push_back(item);
+                string_view.push_back(item.path().filename().string());
+            }
+        }
+
+
         return gridbox({
             {
                 text(fmt::format("Current Dir: {}", current.string())) | bold
             },
             {
-                window(text("Target File"), input_target_file->Render())
+                window(text("Target File"), input_target_file->Render()) 
             }, {
-                view->Render()            
+                view->Render() | frame | size(HEIGHT, LESS_THAN, 10) 
             }, {
-                text("q: quit") | border
+                text(fmt::format("a: {}", a)) | border
+            },{
+                text(fmt::format("target: {}", target_file)) | border
             }         
         });
     });
