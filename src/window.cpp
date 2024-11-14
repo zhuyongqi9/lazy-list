@@ -81,7 +81,7 @@ Component list_view(std::filesystem::path &current, std::vector<std::filesystem:
     }
 
     MenuOption option = MenuOption::Vertical();
-    option.entries_option.transform = [] (EntryState state) {
+    option.entries_option.transform = [&] (EntryState state) {
         Element e = text((state.active ? "> " : "  ") + state.label);  // NOLINT
         if (state.focused) {
           e |= inverted;
@@ -94,7 +94,7 @@ Component list_view(std::filesystem::path &current, std::vector<std::filesystem:
         } 
 
         try {
-            if (std::filesystem::directory_entry(state.label).is_directory()) {
+            if (std::filesystem::directory_entry(current / state.label).is_directory()) {
                 e |= color(Color::Green);
             }
         } catch (std::filesystem::filesystem_error &e) {
@@ -148,6 +148,7 @@ int main() {
     std::string target_file;
     Component input_target_file = Input(&target_file, "", InputOption::Default());
     input_target_file |= CatchEvent([&](Event event) {
+        if (!input_target_file->Focused()) return true;
         return false;
     });
 
