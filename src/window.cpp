@@ -20,6 +20,7 @@
 #include <string_view>
 #include <vector>
 #include "MESSAGE.h"
+
 uint64_t directory_size(std::filesystem::path path) {
     auto it = std::filesystem::recursive_directory_iterator(path);
     uint64_t res = 0;
@@ -358,6 +359,11 @@ int main() {
         if (event == Event::Character('q')) {
           screen.ExitLoopClosure()();
           return true;
+        }
+
+        if (event ==  Event::Special("\x1B")) {
+            current = current.parent_path();
+            return true;
         }
         return false;
     });
