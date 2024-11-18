@@ -17,148 +17,84 @@
 #include <fmt/format.h>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <vector>
 #include "MESSAGE.h"
-
-uint64_t directory_size(std::filesystem::path path) {
-    auto it = std::filesystem::recursive_directory_iterator(path);
-    uint64_t res = 0;
-    for (auto start = it; it != std::filesystem::end(it); it++) {
-        if (it->is_regular_file())
-            res += (*it).file_size();
-    }
-    return res;
-}
-
-std::string formatted_file_size(std::filesystem::path path) {
-    try {
-        auto entry = std::filesystem::directory_entry(path);
-        uint64_t size;
-        if (entry.is_regular_file()) {
-            size = entry.file_size();
-        } else if (entry.is_directory()) {
-            size = directory_size(path);
-        } else {
-            size = 0;
-        }
-        if (size < 1024) {
-        // Byte
-            return fmt::format("{:>8} B", size);
-        } else if (size < 1024 * 1024) {
-        // KB
-            double res = size / 1024.0;
-            return fmt::format("{:>8.2f}KB", res);
-        } else if (size < 1024 * 1024 * 1024) {
-        // MB
-            double res = size / 1024.0 / 1024;
-            return fmt::format("{:>8.2f}MB", res);
-        } else {
-        //GB
-            double res = size / 1024.0 / 1024 / 1024;
-            return fmt::format("{:>8.2f}GB", res);
-        }
-    } catch (const std::exception &e) {
-        //return fmt::format("{:>6}NULL", e.what());
-        return fmt::format("{:>6}NULL", "");
-    }
-}
-
-std::string file_view_string(std::filesystem::path path, bool full_path = false) {
-    std::string size = formatted_file_size(path);
-    if (full_path) {
-        return fmt::format("{:<32} {}", path.string(), size);
-    } else {
-        return fmt::format("{:<32} {}", path.filename().string(), size);
-    }
-}
-
-
-
-std::vector<std::string> skipped_file = {
-    "Photos Library.photoslibrary",
-};
-
-bool skipped(std::string &path) {
-    for (auto &item : skipped_file) if (item == path) return true;
-    return false;
-}
-
-
-
-enum options {
-    regex = 1 << 1,
-    caseignored = 1 << 2,
-};
-
-std::vector<std::filesystem::directory_entry> search_file(std::string &name, std::filesystem::path &path, int option) {
-    auto file = std::filesystem::recursive_directory_iterator(path, std::filesystem::directory_options::skip_permission_denied);
-    std::vector<std::filesystem::directory_entry> res(0);
-    auto target = name;
-
-    if (option & caseignored) {
-        std::for_each(target.begin(), target.end(), [](char &c) {
-            c = std::toupper(c);
-        });
-    }
-
-    try {
-        for(auto it = file; it != std::filesystem::end(file); it++) {
-            const std::filesystem::directory_entry &entry = *it;
-            std::string file_name = entry.path().filename().string();
-            if (skipped(file_name)) {
-                it.disable_recursion_pending();
-                continue;
-            } else if (file_name.size() > 0 && file_name[0] == '.') {
-                it.disable_recursion_pending();
-                continue;
-            }
-
-            if (option & caseignored) {
-                std::for_each(file_name.begin(), file_name.end(), [](char &c) {
-                    c = std::toupper(c);
-                });
-            }
-
-            if (option & regex) {
-                std::regex pattern(name);
-                if (std::regex_match(file_name, pattern)) {
-                    res.push_back(entry);
-                }
-            } else {
-                if (file_name.find(target) == 0) {
-                    res.push_back(entry);
-                }
-            }
-        }
-    } catch (const std::filesystem::filesystem_error &e) {
-        
-    } catch (const std::regex_error &e) {
-
-    }
-    return res;
-}
-
-
-std::vector<std::filesystem::directory_entry> list_all(std::filesystem::path path) {
-    auto start = std::filesystem::directory_iterator(path, std::filesystem::directory_options::skip_permission_denied);
-    std::vector<std::filesystem::directory_entry> res;
-    try {
-        for (auto it = start; it != std::filesystem::end(start); it++) {
-            auto entry = *it;
-            res.push_back(entry);
-        }
-    } catch (std::filesystem::filesystem_error &e) {
-    }
-    return res;
-}
+#include "file_utils.h" 
 
 using namespace ftxui;
 
-Component list_view(std::filesystem::path &current, std::vector<std::filesystem::directory_entry> &files, std::vector<std::string> &string_view) {
-    std::shared_ptr<int> selected = std::make_shared<int>(0);
+class FileEntryModel {
+public:
+    enum search_options {
+        regex = 1 << 1,
+        caseignored = 1 << 2,
+    };
 
+    FileEntryModel(): file_entry(0) {
+    }
+
+    void list(std::filesystem::path &path) {
+        file_entry = list_all(path);
+    }
+
+    void search(std::string name, std::filesystem::path path,int options) {
+        file_entry = search_file(name, path, options);
+    }
+
+    std::vector<std::filesystem::directory_entry> file_entry;
+
+private:
+};
+
+
+class FileEntryView {
+public:
+    enum show_options {
+        directory_size = 1,
+        file_size = 1 << 2,
+        full_path = 1 << 3,
+
+        list = file_size,
+        search = full_path,
+    };   
+
+    void render(FileEntryModel &model, int options) {
+        table.clear();
+
+        for (const auto &item : model.file_entry) {
+            std::string s = "";
+            if (options & full_path) {
+                s += fmt::format("{:40}", item.path().string());
+            } else {
+                s += item.path().filename().string();
+            }
+
+            if (item.is_regular_file()) {
+                if (options & file_size) {
+                    std::string ssize = formatted_file_size(item.path());
+                    s += ssize;
+                }
+            } else if (item.is_directory()) {
+                if (options & show_options::directory_size) {
+                    std::string ssize = formatted_directory_size(item);
+                }
+            }
+            table.push_back(s);
+        }
+
+    }
+
+    std::vector<std::string> table;
+    int selected;
+};
+
+FileEntryModel file_model;
+FileEntryView file_view;
+std::filesystem::path current_dir =  std::filesystem::current_path();
+
+Component list_view() {
     MenuOption option = MenuOption::Vertical();
+
     option.entries_option.transform = [&] (EntryState state) {
         Element e = text((state.active ? "> " : "  ") + state.label);  // NOLINT
 
@@ -166,7 +102,7 @@ Component list_view(std::filesystem::path &current, std::vector<std::filesystem:
             if (state.index == 0) {
                 e |= color(Color::Green);
             } else {
-                if (files[state.index-1].is_directory()) {
+                if (file_model.file_entry[state.index].is_directory()) {
                     e |= color(Color::Green);
                 }
             }
@@ -187,50 +123,32 @@ Component list_view(std::filesystem::path &current, std::vector<std::filesystem:
         return e;
     };
 
-    option.on_enter = [&current, &files, &string_view, selected]()mutable {
-        if (*selected == 0) {
-            current = current.parent_path();
-            files = std::vector<std::filesystem::directory_entry>(list_all(current));
-            string_view.clear();
-            string_view.push_back(M_PARENT_PATH);
-            for (auto &file : files) {
-                string_view.push_back(file_view_string(file.path()));
-            }
+    option.on_enter = [&]()mutable {
+        if (file_view.selected == 0) {
+            current_dir = current_dir.parent_path();
         } else {
-            std::filesystem::directory_entry selected_entry = (files)[*selected-1];
-            if (selected_entry.is_directory()) {
-                current = selected_entry.path();
-                files = std::vector<std::filesystem::directory_entry>(list_all(current));
-                string_view.clear();
-                string_view.push_back(M_PARENT_PATH);
-                for (auto &file : files) {
-                    string_view.push_back(file_view_string(file.path()));
-                }
-            }
+            current_dir = file_model.file_entry[file_view.selected];
         }
+
+        file_model.list(current_dir);
+        file_view.render(file_model, FileEntryView::show_options::list);
     };
 
-    auto entry = Menu(&string_view, selected.get(), option);
-
+    auto entry = Menu(&file_view.table, &file_view.selected, option);
     return entry;
 }
 
-
+void init() {
+    file_model.list(current_dir);
+    file_view.render(file_model, FileEntryView::show_options::list);
+}
 
 int main() {
+    init();
+
     auto screen = ScreenInteractive::Fullscreen(); 
-
-
-    std::filesystem::path current =  std::filesystem::current_path();
-    std::vector<std::filesystem::directory_entry> files = list_all(current);
-    std::vector<std::string> string_view;
-    string_view.push_back(M_PARENT_PATH);
-    for (auto &item : files) string_view.push_back(file_view_string(item.path()));
-
-
-    int selected = 0;
-    auto view = list_view(current, files, string_view);
-    int a = 0;
+    auto view = list_view();
+    std::string e;
 
     std::string target_file;
     Component input_target_file = Input(&target_file, "", InputOption::Default());
@@ -305,50 +223,36 @@ int main() {
 
 
     auto component = Renderer(container, [&] {
-
-        //if (target_file.size() > 0) {
-        //    view->Detach();
-        //    view = list_view(current);
-        //    container->Add(view);
-        //}
-
         std::vector<std::filesystem::directory_entry> res;
-        
 
-        if (target_file.size() > 0) {
+        try {
+        if (target_file.length() > 0) {
             int options;
-            if (button_regex_clicked) options |= options::regex;
-            else if (button_case_ignored_clicked)  options |= options::caseignored;
-            res = search_file(target_file, current,  options);
-            files.clear();
-            string_view.clear();
-            for (auto &item : res)  {
-                files.push_back(item);
-                string_view.push_back(file_view_string(item.path(), true));
-            }
-        } else if (target_file.size() == 0) {
-            res = list_all(current); 
-            files.clear();
-            string_view.clear();
-            string_view.push_back(M_PARENT_PATH);
-            for (auto &item : res)  {
-                files.push_back(item);
-                string_view.push_back(file_view_string(item.path()));
-            }
-        }
+            if (button_regex_clicked) options |= search_options::regex;
+            else if (button_case_ignored_clicked)  options |= search_options::caseignored;
 
+            file_model.search(target_file, current_dir, options);
+            file_view.render(file_model, FileEntryView::show_options::search);
+        } else if (target_file.size() == 0) {
+            file_model.list(current_dir);
+            file_view.render(file_model, FileEntryView::show_options::list);
+        }
+        }
+        catch (std::exception &ex) {
+            e = ex.what();
+        }
         std::string title = target_file.size() > 0 ? "Search Results" : "Files";
 
         return gridbox({
             {
-                text(fmt::format("Current Dir: {}", current.string())) | bold
+                text(fmt::format("Current Dir: {}", current_dir.string())) | bold
             },
             {
                 window(text("Target File"), input_search->Render()) 
             }, {
                 window(text(title), view->Render() | frame | size(HEIGHT, LESS_THAN, 20))
             }, {
-                text(fmt::format("a: {}", button_regex_clicked)) | border
+                text(fmt::format("e: {}", e)) | border
             },{
                 text(fmt::format("target: {}", target_file)) | border
             }         
@@ -362,7 +266,7 @@ int main() {
         }
 
         if (event ==  Event::Special("\x1B")) {
-            current = current.parent_path();
+            current_dir = current_dir.parent_path();
             return true;
         }
         return false;

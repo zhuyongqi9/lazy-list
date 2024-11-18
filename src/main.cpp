@@ -19,7 +19,7 @@ bool skipped(std::string &path) {
     return false;
 }
 
-enum options {
+enum search_options {
     regex = 1 << 1,
     caseignored = 1 << 2,
 };
