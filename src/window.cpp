@@ -20,6 +20,7 @@
 #include <vector>
 #include "MESSAGE.h"
 #include "file_utils.h" 
+#include "search_bar.h"
 
 using namespace ftxui;
 
@@ -150,74 +151,9 @@ int main() {
     auto view = list_view();
     std::string e;
 
-    std::string target_file;
-    Component input_target_file = Input(&target_file, "", InputOption::Default());
-    input_target_file |= CatchEvent([&](Event event) {
-//        if (!input_target_file->Focused()) return true;
-        return false;
-    });
-
-    bool button_case_ignored_clicked = true;
-    ButtonOption option1 = ButtonOption::Animated();
-    option1.transform = [&](const EntryState& s) {
-        auto element = text(s.label);
-        if (s.focused) {
-          element |= bold;
-          element |= color(Color::Red);
-        }
-
-        if (button_case_ignored_clicked) {
-          element |= color(Color::Green);
-        }
-        //return element | center | borderEmpty | flex;
-        return element | center;
-    };
-    option1.animated_colors.background.Set(Color(), Color());
-    Component button_case_ignored = Button ("Aa", [&] {
-        button_case_ignored_clicked = !button_case_ignored_clicked;
-    }, option1);
-
-    bool button_regex_clicked = false;
-    ButtonOption option2 = ButtonOption::Animated();
-    option2.transform = [&](const EntryState& s) {
-        auto element = text(s.label);
-        if (s.focused) {
-          element |= bold;
-          element |= color(Color::Red);
-        }
-        if (button_regex_clicked) 
-          element |= color(Color::Green);
-        //return element | center | borderEmpty | flex;
-        return element | center;
-    };
-    option2.animated_colors.background.Set(Color(), Color());
-    Component button_regex = Button(".*", [&]{
-        button_regex_clicked = !button_regex_clicked;
-    }, option2);
-
-
-    int serach_button_selected;
-
-    Component search_button_container = Container::Horizontal({
-        input_target_file,
-        button_case_ignored,
-        button_regex,
-    });
-
-    Component input_search = Renderer(search_button_container, [&](){
-        auto renderer_button_case_ignored = button_case_ignored->Render() | size(ftxui::WIDTH, ftxui::EQUAL, 3);
-        auto renderer_button_regex = button_regex->Render() | size(ftxui::WIDTH, ftxui::EQUAL, 3);
-
-        return flexbox({ 
-            input_target_file->Render(),
-            renderer_button_case_ignored,
-            renderer_button_regex,
-        });
-    });
-
-
-    Component container = Container::Vertical({
-        input_search,
+    SearchBar search_bar;
+    Component container = Container::Stacked({
+        search_bar.component,
         view
     });
 
@@ -226,14 +162,14 @@ int main() {
         std::vector<std::filesystem::directory_entry> res;
 
         try {
-        if (target_file.length() > 0) {
+        if (search_bar.text().length() > 0) {
             int options;
-            if (button_regex_clicked) options |= search_options::regex;
-            else if (button_case_ignored_clicked)  options |= search_options::caseignored;
+            if (search_bar.regex()) options |= search_options::regex;
+            else if (search_bar.case_ignored())  options |= search_options::caseignored;
 
-            file_model.search(target_file, current_dir, options);
+            file_model.search(search_bar.text(), current_dir, options);
             file_view.render(file_model, FileEntryView::show_options::search);
-        } else if (target_file.size() == 0) {
+        } else if (search_bar.text().size() == 0) {
             file_model.list(current_dir);
             file_view.render(file_model, FileEntryView::show_options::list);
         }
@@ -241,21 +177,23 @@ int main() {
         catch (std::exception &ex) {
             e = ex.what();
         }
-        std::string title = target_file.size() > 0 ? "Search Results" : "Files";
+        std::string title = search_bar.text().size() > 0 ? "Search Results" : "Files";
 
         return gridbox({
             {
                 text(fmt::format("Current Dir: {}", current_dir.string())) | bold
             },
             {
-                window(text("Target File"), input_search->Render()) 
+                window(text("Target File"), search_bar.component->Render()) 
             }, {
                 window(text(title), view->Render() | frame | size(HEIGHT, LESS_THAN, 20))
             }, {
                 text(fmt::format("e: {}", e)) | border
             },{
-                text(fmt::format("target: {}", target_file)) | border
-            }         
+                text(fmt::format("target: {}", search_bar.search_input.text)) | border
+            }, {
+                text(fmt::format("target: {}", search_bar.regex())) | border
+            }
         });
     });
 
