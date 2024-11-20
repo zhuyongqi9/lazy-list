@@ -192,7 +192,7 @@ int main() {
             },{
                 text(fmt::format("target: {}", search_bar.search_input.text)) | border
             }, {
-                text(fmt::format("target: {}", search_bar.regex())) | border
+                text(fmt::format("target: {}", search_bar.case_ignored())) | border
             }
         });
     });

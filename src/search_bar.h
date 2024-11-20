@@ -7,8 +7,10 @@ using namespace ftxui;
 
 class RegexButton {
 public:
+    RegexButton& operator=(const RegexButton&) = delete;
+
     RegexButton():clicked(false) {
-        option = ButtonOption::Animated();
+        auto option = ButtonOption::Animated();
         option.transform = [this](const EntryState& s) {
             auto element = text(s.label);
             if (s.focused) {
@@ -17,7 +19,7 @@ public:
             }
 
             if (this->clicked) {
-              element |= color(Color::Blue);
+              element |= color(Color::Green);
             }
             //return element | center | borderEmpty | flex;
             return element | center;
@@ -26,7 +28,7 @@ public:
 
         component = Button(".*", [this] {
             this->clicked = !this->clicked;
-        }, this-> option);
+        }, option);
     }
 
     Component render() {
@@ -35,13 +37,13 @@ public:
 
     bool clicked;
     Component component; 
-    ButtonOption option;
 };
 
 class CaseIngoreButton {
 public:
+    CaseIngoreButton& operator=(const CaseIngoreButton&) = delete;
     CaseIngoreButton():clicked(true) {
-        this->option = ButtonOption::Animated();
+        auto option = ButtonOption::Animated();
         option.transform = [this](const EntryState& s) {
             auto element = text(s.label);
             if (s.focused) {
@@ -49,7 +51,7 @@ public:
               element |= color(Color::Red);
             }
             if (this->clicked) 
-              element |= color(Color::Grey100);
+              element |= color(Color::Green);
             //return element | center | borderEmpty | flex;
             return element | center;
         };
@@ -65,14 +67,15 @@ public:
 
     bool clicked;
     Component component; 
-    ButtonOption option;
 };
 
 
 class SearchInput {
 public:
+    SearchInput& operator=(const SearchInput &) = delete;
+
     SearchInput() {
-        this->component = Input(text, "", InputOption::Default());
+        this->component = Input(&text, "", InputOption::Default());
     }
 
     std::string text = "";
@@ -82,17 +85,13 @@ public:
 class SearchBar {
 public:
     SearchBar() {
-        search_input = SearchInput();
-        button_regex = RegexButton();
-        button_case_ignored = CaseIngoreButton();
-
         container = Container::Horizontal({
             search_input.component,
             button_case_ignored.component, 
             button_regex.component,
         });
 
-        component = Renderer(this->container, [&]() {
+        component = Renderer(this->container, [this]() {
             return flexbox({ 
                 search_input.component->Render(),
                 button_case_ignored.component->Render() | size(ftxui::WIDTH, ftxui::EQUAL, 3),
@@ -102,12 +101,13 @@ public:
     }
 
     std::string& text() { return search_input.text; }
+
     Component component;
     Component container;
 
-    SearchInput search_input;
-    RegexButton button_regex;
-    CaseIngoreButton button_case_ignored;
+    SearchInput search_input = SearchInput();
+    RegexButton button_regex = RegexButton();
+    CaseIngoreButton button_case_ignored = CaseIngoreButton();
 
     bool regex() { return button_regex.clicked; }
     bool case_ignored() { return button_case_ignored.clicked; }
