@@ -1,6 +1,3 @@
-#include <algorithm>
-#include <cstdint>
-#include <regex>
 #include <exception>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
@@ -21,6 +18,7 @@
 #include "MESSAGE.h"
 #include "file_utils.h" 
 #include "search_bar.h"
+#include "file_operation_dialog.h"
 
 using namespace ftxui;
 
@@ -35,7 +33,11 @@ public:
     }
 
     void list(std::filesystem::path &path) {
-        file_entry = list_all(path);
+        try {
+            file_entry = list_all(path);
+        } catch (std::filesystem::filesystem_error &e) {
+            file_entry.clear();
+        }
     }
 
     void search(std::string name, std::filesystem::path path,int options) {
@@ -65,9 +67,9 @@ public:
         for (const auto &item : model.file_entry) {
             std::string s = "";
             if (options & full_path) {
-                s += fmt::format("{:40}", item.path().string());
+                s += fmt::format("{: <40}", item.path().string());
             } else {
-                s += item.path().filename().string();
+                s += fmt::format("{: <40}", item.path().filename().string());
             }
 
             if (item.is_regular_file()) {
@@ -128,7 +130,14 @@ Component list_view() {
         if (file_view.selected == 0) {
             current_dir = current_dir.parent_path();
         } else {
-            current_dir = file_model.file_entry[file_view.selected];
+            auto dir = file_model.file_entry[file_view.selected];
+            try {
+                if (dir.is_directory()) {
+                    current_dir = dir.path();
+                }
+            } catch (std::filesystem::filesystem_error &e) {
+
+            }
         }
 
         file_model.list(current_dir);
@@ -157,24 +166,22 @@ int main() {
         view
     });
 
-
     auto component = Renderer(container, [&] {
         std::vector<std::filesystem::directory_entry> res;
 
         try {
-        if (search_bar.text().length() > 0) {
-            int options;
-            if (search_bar.regex()) options |= search_options::regex;
-            else if (search_bar.case_ignored())  options |= search_options::caseignored;
+            if (search_bar.text().length() > 0) {
+                int options;
+                if (search_bar.regex()) options |= search_options::regex;
+                else if (search_bar.case_ignored())  options |= search_options::caseignored;
 
-            file_model.search(search_bar.text(), current_dir, options);
-            file_view.render(file_model, FileEntryView::show_options::search);
-        } else if (search_bar.text().size() == 0) {
-            file_model.list(current_dir);
-            file_view.render(file_model, FileEntryView::show_options::list);
-        }
-        }
-        catch (std::exception &ex) {
+                file_model.search(search_bar.text(), current_dir, options);
+                file_view.render(file_model, FileEntryView::show_options::search);
+            } else if (search_bar.text().size() == 0) {
+                file_model.list(current_dir);
+                file_view.render(file_model, FileEntryView::show_options::list);
+            }
+        } catch (std::exception &ex) {
             e = ex.what();
         }
         std::string title = search_bar.text().size() > 0 ? "Search Results" : "Files";
@@ -191,8 +198,6 @@ int main() {
                 text(fmt::format("e: {}", e)) | border
             },{
                 text(fmt::format("target: {}", search_bar.search_input.text)) | border
-            }, {
-                text(fmt::format("target: {}", search_bar.case_ignored())) | border
             }
         });
     });
