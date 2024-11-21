@@ -1,6 +1,8 @@
+#include "fmt/core.h"
 #include <filesystem>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
+#include <ftxui/component/component_options.hpp>
 #include <ftxui/component/event.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/dom/node.hpp>
@@ -8,11 +10,12 @@
 #include <unordered_map>
 #include <fmt/format.h>
 #include <file_operation.h>
+#include <vector>
 
 using namespace ftxui;
 
 //=MESSAGE===================
-static const std::string TITLE = "File Operations <Esc>";
+static const std::string TITLE = "Selected file: \"{}\" <Esc>";
 //=====================================
 
 static std::vector<std::pair<std::string, std::function<void(const std::filesystem::path &)>>> handle_map = {
@@ -29,9 +32,37 @@ static std::vector<std::pair<std::string, std::function<void(const std::filesyst
     {fmt::format("{: <8}DeCompress File", "d"), [](const std::filesystem::path &path)->void{}},
 };
 
+class DstDialog {
+public:
+    DstDialog():shown(false) {
+        auto option = InputOption::Default();
+        option.on_enter = [&]() {
+            this->shown = false;
+        };
+
+        this->input = Input(&(this->file), "", option);
+
+        this->container = Container::Stacked({this->input});
+
+        this->component = Renderer(this->container, [&]() {
+            return vbox ({
+                window(text("Target File Path" + file) , this->input->Render() | size(WIDTH, GREATER_THAN, 30)),
+            });
+        });
+    }
+    bool shown;
+    Component component;
+    Component container;
+    Component input;
+    std::string file="";
+
+private:
+};
+
 class FileOperationDialog {
 public:
-    FileOperationDialog(const std::filesystem::path src):src(src) {
+    FileOperationDialog& operator=(const FileOperationDialog&) = delete;
+    FileOperationDialog(const std::filesystem::path src):src(src), view(0) {
         for(auto &pair : handle_map) view.push_back(pair.first);
 
         MenuOption option = MenuOption::Vertical();
@@ -53,16 +84,17 @@ public:
         };
 
         option.on_enter = [&]()mutable {
-            auto f = handle_map[selected].second;
+            dst.shown = true;
+            auto f = handle_map[this->selected].second;
             f(src);
         };
 
-        auto menu = Menu(&view, &selected);
-        auto conatiner = Container::Stacked({menu});
+        menu = Menu(&view, &selected, option);
+        container = Container::Stacked({menu});
 
-        component = Renderer(conatiner, [=] {
+        component = Renderer(container, [&]() {
             return vbox ({
-                window(text(TITLE), menu->Render()),
+                window(text(fmt::format(TITLE, this->src.filename().string())) | color(Color::Green), menu->Render()),
             });
         });
 
@@ -73,15 +105,26 @@ public:
             }
             return false;
         });
+
+        dst.shown = false;
+        component |= Modal(dst.component, &dst.shown);
     };
 
     Element Render() {
         return component->Render();
     }
 
+    void udpate_path(const std::filesystem::path &path) {
+        this->src = path;
+    }
+
     Component component;
+    Component menu;
+    Component container;
     int selected;
     bool shown;
+    DstDialog dst = DstDialog();
     std::vector<std::string> view;
+private:
     std::filesystem::path src;
 };

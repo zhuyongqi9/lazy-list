@@ -19,6 +19,8 @@
 #include "file_utils.h" 
 #include "search_bar.h"
 #include "file_operation_dialog.h"
+#include <spdlog/spdlog.h>
+#include "spdlog/sinks/basic_file_sink.h"
 
 using namespace ftxui;
 
@@ -136,7 +138,6 @@ Component list_view() {
                     current_dir = dir.path();
                 }
             } catch (std::filesystem::filesystem_error &e) {
-
             }
         }
 
@@ -154,17 +155,30 @@ void init() {
 }
 
 int main() {
-    init();
+    spdlog::set_level(spdlog::level::debug);
+    std::shared_ptr<spdlog::logger> logger;
+    try {
+        logger = spdlog::basic_logger_mt("logger", "logs/debug_log.txt");
+    } catch (const spdlog::spdlog_ex &ex) {
+        fmt::println("Log init failed: {}", ex.what());
+    }
 
+    init();
+    try {
     auto screen = ScreenInteractive::Fullscreen(); 
     auto view = list_view();
+
+    FileOperationDialog dialog(current_dir);
+    view |= Modal(dialog.component, &dialog.shown); 
+
     std::string e;
 
     SearchBar search_bar;
     Component container = Container::Stacked({
         search_bar.component,
-        view
+        view,
     });
+
 
     auto component = Renderer(container, [&] {
         std::vector<std::filesystem::directory_entry> res;
@@ -193,7 +207,7 @@ int main() {
             {
                 window(text("Target File"), search_bar.component->Render()) 
             }, {
-                window(text(title), view->Render() | frame | size(HEIGHT, LESS_THAN, 20))
+                window(text(title), view->Render() | frame | size(HEIGHT, LESS_THAN, 35))
             }, {
                 text(fmt::format("e: {}", e)) | border
             },{
@@ -202,20 +216,37 @@ int main() {
         });
     });
 
+
     component |= CatchEvent([&](Event event) {
         if (event == Event::Character('q')) {
           screen.ExitLoopClosure()();
           return true;
         }
 
-        if (event ==  Event::Special("\x1B")) {
-            current_dir = current_dir.parent_path();
+        if (event == Event::Character('x')) {
+            auto dir = file_model.file_entry[file_view.selected];
+            dialog.udpate_path(dir);
+            dialog.shown = true;
             return true;
+        }
+
+        if (event ==  Event::Special("\x1B")) {
+            if (dialog.shown) return false;
+            else {
+                current_dir = current_dir.parent_path();
+                return true;
+            }
         }
         return false;
     });
 
 
+
     screen.Loop(component);
+
+    } catch (std::exception &e) {
+        logger->debug("{}", e.what());
+    }
+
     return 0;
 }
