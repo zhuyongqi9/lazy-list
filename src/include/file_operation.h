@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <system_error>
 #include <fstream>
+#include <thread>
 
 class FileOperation {
 public:
@@ -124,13 +125,79 @@ public:
 
     }
     virtual void perform() {
-        auto copy = CopyFileOperation(src, dst);
-        copy.perform();
-        auto del = DeleteFileOperation(src);
-        del.perform();
+        std::error_code ec;
+        std::filesystem::rename(src, dst);
+        if (ec.value() != 0) {
+            throw std::runtime_error("Failed to move file, reasion: " + ec.message());
+        }
     }
 private:
     std::filesystem::path src;
     std::filesystem::path dst;
 };
 
+class CompressFileOperation : public FileOperation {
+public:
+    CompressFileOperation(const std::filesystem::path &src, const std::filesystem::path &dst):src(src),dst(dst) {}
+
+    virtual void perform() {
+        auto cmd = fmt::format("zip -j -r {} {}", dst.string(), src.string());
+        int ret = 0;
+        auto f = [&] () {
+            ret = std::system(cmd.c_str());
+        };
+        std::thread t(f);
+        t.join();
+
+        if (ret != 0) {
+            throw std::runtime_error(fmt::format("Failed to Compress File err_code: {}", ret));
+        }
+    }
+private:
+    std::filesystem::path src;
+    std::filesystem::path dst;
+};
+
+class DecompressFileOperation {
+public:
+    DecompressFileOperation(const std::filesystem::path &src, const std::filesystem::path &dst):src(src),dst(dst) {}
+
+    virtual void perform() {
+        using namespace std::filesystem;
+        std::error_code ec;
+        if (exists(src, ec)) {
+            if (!exists(dst, ec)) {
+                auto cmd = fmt::format("unzip {} -d {}", src.string(), dst.string());
+                int ret = 0;
+                auto f = [&] () {
+                    ret = std::system(cmd.c_str());
+                };
+                std::thread t(f);
+                t.join();
+
+                if (ret != 0) {
+                    throw std::runtime_error(fmt::format("Failed to Compress File err_code: {}", ret));
+                }
+            } else {
+                throw std::runtime_error(fmt::format("Target File {} already exits, please delete first", dst.string()));
+            }
+        } else {
+            throw std::runtime_error(fmt::format("File {} not exits", src.string()));
+        }
+    }
+
+private:
+    std::filesystem::path src;
+    std::filesystem::path dst;
+};
+
+std::string filename_without_ext(const std::filesystem::path &path) {
+    auto name = path.filename().string();
+    std::string res;
+    std::string::size_type pos = 0;
+    if ((pos = name.find_last_of(".")) != std::string::npos) {
+        return name.substr(0, pos);
+    } else {
+        return name;
+    }
+};

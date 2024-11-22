@@ -26,12 +26,17 @@ class DstDialog {
 public:
     DstDialog():shown(false) {
         auto option = InputOption::Default();
+        option.multiline = false;
         option.on_enter = [&]() {
-            f(message);
+            auto begin = this->message.find_first_not_of(" ");
+            auto end = this->message.find_last_not_of(" ");
+            auto str = message.substr(begin, end + 1 - begin);
+            f(str);
             this->shown = false;
+            this->message = "";
         };
 
-        this->input = Input(&(this->message), "", option);
+        this->input = Input(&(this->message), &(this->message), option);
 
         this->container = Container::Stacked({this->input});
 
@@ -135,6 +140,7 @@ private:
                 } catch (std::runtime_error &e){
                     info = e.what();
                 }
+                this->shown = false;
             };
         }},
 
@@ -148,18 +154,97 @@ private:
                 } catch (std::runtime_error &e){
                     info = e.what();
                 }
+                this->shown = false;
             };
         }},
 
-        {fmt::format("{: <8}Rename File", "r"), []()->void{}},
-        {fmt::format("{: <8}Copy File To", "p"), []()->void{}},
-        {fmt::format("{: <8}Move File To", "m"), []()->void{
+        {fmt::format("{: <8}Rename File", "r"), [&]()->void{
+            dst.shown = true;
+            dst.f = [&](std::string &dst) {
+                try {
+                    std::filesystem::path target = this->src.parent_path() / dst;
+                    auto op = MoveFileOperation(this->src, target);
+                    op.perform();
+                    info = fmt::format("File renamed successfully.");
+                } catch (std::runtime_error &e){
+                    info = e.what();
+                }
+                this->shown = false;
+            };
         }},
+
+        {fmt::format("{: <8}Copy File To", "p"), [&]()->void{
+            dst.shown = true;
+            dst.message = this->src.string();
+            dst.f = [&](std::string &dst) {
+                try {
+                    auto op = CopyFileOperation(this->src, dst);
+                    op.perform();
+                    info = fmt::format("File copied successfully.");
+                } catch (std::runtime_error &e){
+                    info = e.what();
+                }
+                this->shown = false;
+            };
+        }},
+
+        {fmt::format("{: <8}Move File To", "m"), [&]()->void{
+            dst.shown = true;
+            dst.message = this->src.string();
+            dst.f = [&](std::string &dst) {
+                try {
+                    auto op = MoveFileOperation(this->src, dst);
+                    op.perform();
+                    info = fmt::format("File copied successfully.");
+                } catch (std::runtime_error &e){
+                    info = e.what();
+                }
+                this->shown = false;
+            };
+        }},
+
         {fmt::format("{: <8}Delete File", "D"), [&]()->void{
             auto op = DeleteFileOperation(this->src);
             op.perform();
+            this->shown = false;
         }},
-        {fmt::format("{: <8}Compress File", "z"), []()->void{}},
-        {fmt::format("{: <8}DeCompress File", "d"), []()->void{}},
+
+        {fmt::format("{: <8}Compress File", "z"), [&]()->void{
+            dst.shown = true;
+            auto path = this->src.parent_path() / fmt::format("{}.zip", filename_without_ext(this->src));
+            dst.message = path.string();
+            dst.f = [&](std::string &dst) {
+                try {
+                    auto op = CompressFileOperation(this->src, dst);
+                    op.perform();
+                    info = fmt::format("File compressed successfully");
+                } catch (std::runtime_error &e){
+                    info = e.what();
+                }
+                this->shown = false;
+            };
+        }},
+        {fmt::format("{: <8}Decompress File", "d"), [&]()->void{
+            if (src.extension() == ".zip") {
+                dst.shown = true;
+                auto path = this->src.parent_path() / fmt::format("{}", filename_without_ext(this->src));
+                dst.message = path.string();
+
+                dst.f = [&](std::string &dst) {
+                    try {
+                        auto op = DecompressFileOperation(this->src, dst);
+                        op.perform();
+                        info = fmt::format("File Decompressed successfully");
+                    } catch (std::runtime_error &e){
+                        info = e.what();
+                    }
+                    this->shown = false;
+                };
+
+            } else {
+                info = "Unsupported File";
+                this->shown = false;
+            }
+        }},
     };
 };
