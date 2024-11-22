@@ -7,6 +7,8 @@
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/dom/node.hpp>
 #include <functional>
+#include <stdexcept>
+#include <string>
 #include <unordered_map>
 #include <fmt/format.h>
 #include <file_operation.h>
@@ -18,35 +20,24 @@ using namespace ftxui;
 static const std::string TITLE = "Selected file: \"{}\" <Esc>";
 //=====================================
 
-static std::vector<std::pair<std::string, std::function<void(const std::filesystem::path &)>>> handle_map = {
-    {fmt::format("{: <8}Create File", "c"), [](const std::filesystem::path &path)->void{}},
-    {fmt::format("{: <8}Create Folder", "C"), [](const std::filesystem::path &path)->void{}},
-    {fmt::format("{: <8}Rename File", "r"), [](const std::filesystem::path &path)->void{}},
-    {fmt::format("{: <8}Copy File To", "p"), [](const std::filesystem::path &path)->void{}},
-    {fmt::format("{: <8}Move File To", "m"), [](const std::filesystem::path &path)->void{}},
-    {fmt::format("{: <8}Delete File", "D"), [](const std::filesystem::path &path)->void{
-        auto op = DeleteFileOperation(path);
-        op.perform();
-    }},
-    {fmt::format("{: <8}Compress File", "z"), [](const std::filesystem::path &path)->void{}},
-    {fmt::format("{: <8}DeCompress File", "d"), [](const std::filesystem::path &path)->void{}},
-};
+extern std::string info;
 
 class DstDialog {
 public:
     DstDialog():shown(false) {
         auto option = InputOption::Default();
         option.on_enter = [&]() {
+            f(message);
             this->shown = false;
         };
 
-        this->input = Input(&(this->file), "", option);
+        this->input = Input(&(this->message), "", option);
 
         this->container = Container::Stacked({this->input});
 
         this->component = Renderer(this->container, [&]() {
             return vbox ({
-                window(text("Target File Path" + file) , this->input->Render() | size(WIDTH, GREATER_THAN, 30)),
+                window(text("Target File Path" + message) , this->input->Render() | size(WIDTH, GREATER_THAN, 30)),
             });
         });
     }
@@ -54,8 +45,9 @@ public:
     Component component;
     Component container;
     Component input;
-    std::string file="";
 
+    std::string message="";
+    std::function<void(std::string &)> f;
 private:
 };
 
@@ -76,6 +68,7 @@ public:
                 e |= bold;
                 e |= color(Color::Green);
             }
+
             if (!state.focused && !state.active) {
               //e |= dim;
             } 
@@ -84,17 +77,19 @@ public:
         };
 
         option.on_enter = [&]()mutable {
-            dst.shown = true;
             auto f = handle_map[this->selected].second;
-            f(src);
+            f();
         };
 
         menu = Menu(&view, &selected, option);
-        container = Container::Stacked({menu});
+        container = Container::Stacked({
+            dst.component,
+            menu,
+        });
 
         component = Renderer(container, [&]() {
             return vbox ({
-                window(text(fmt::format(TITLE, this->src.filename().string())) | color(Color::Green), menu->Render()),
+                window(text(fmt::format(TITLE, this->src.filename().string())+ std::to_string(this->selected))  | color(Color::Green), menu->Render()),
             });
         });
 
@@ -125,6 +120,46 @@ public:
     bool shown;
     DstDialog dst = DstDialog();
     std::vector<std::string> view;
+
 private:
     std::filesystem::path src;
+
+    std::vector<std::pair<std::string, std::function<void()>>> handle_map = {
+        {fmt::format("{: <8}Create File", "c"), [&]()->void{
+            dst.shown = true;
+            dst.f = [&](std::string &dst) {
+                try {
+                    auto op = CreateFileOperation(dst);
+                    op.perform();
+                    info = fmt::format("File {} created successfully.!", dst);
+                } catch (std::runtime_error &e){
+                    info = e.what();
+                }
+            };
+        }},
+
+        {fmt::format("{: <8}Create Folder", "C"), [&]()->void{
+            dst.shown = true;
+            dst.f = [&](std::string &dst) {
+                try {
+                    auto op = CreateFolderOperation(dst);
+                    op.perform();
+                    info = fmt::format("Folder {} created successfully.!", dst);
+                } catch (std::runtime_error &e){
+                    info = e.what();
+                }
+            };
+        }},
+
+        {fmt::format("{: <8}Rename File", "r"), []()->void{}},
+        {fmt::format("{: <8}Copy File To", "p"), []()->void{}},
+        {fmt::format("{: <8}Move File To", "m"), []()->void{
+        }},
+        {fmt::format("{: <8}Delete File", "D"), [&]()->void{
+            auto op = DeleteFileOperation(this->src);
+            op.perform();
+        }},
+        {fmt::format("{: <8}Compress File", "z"), []()->void{}},
+        {fmt::format("{: <8}DeCompress File", "d"), []()->void{}},
+    };
 };

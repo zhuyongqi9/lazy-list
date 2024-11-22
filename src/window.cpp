@@ -154,6 +154,7 @@ void init() {
     file_view.render(file_model, FileEntryView::show_options::list);
 }
 
+std::string info;
 int main() {
     spdlog::set_level(spdlog::level::debug);
     std::shared_ptr<spdlog::logger> logger;
@@ -209,7 +210,7 @@ int main() {
             }, {
                 window(text(title), view->Render() | frame | size(HEIGHT, LESS_THAN, 35))
             }, {
-                text(fmt::format("e: {}", e)) | border
+                text(fmt::format("info: {}", info)) | border
             },{
                 text(fmt::format("target: {}", search_bar.search_input.text)) | border
             }
