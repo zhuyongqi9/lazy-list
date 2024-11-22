@@ -75,7 +75,9 @@ public:
     SearchInput& operator=(const SearchInput &) = delete;
 
     SearchInput() {
-        this->component = Input(&text, "", InputOption::Default());
+        auto option = InputOption::Default();
+        option.multiline = false;
+        this->component = Input(&text, "", option);
     }
 
     std::string text = "";

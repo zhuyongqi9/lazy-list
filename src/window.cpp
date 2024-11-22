@@ -18,6 +18,7 @@
 #include "MESSAGE.h"
 #include "file_utils.h" 
 #include "search_bar.h"
+#include "recycle_bin_page.h"
 #include "file_operation_dialog.h"
 #include <spdlog/spdlog.h>
 #include "spdlog/sinks/basic_file_sink.h"
@@ -170,7 +171,6 @@ int main() {
     auto view = list_view();
 
     FileOperationDialog dialog(current_dir);
-    view |= Modal(dialog.component, &dialog.shown); 
 
     std::string e;
 
@@ -181,7 +181,7 @@ int main() {
     });
 
 
-    auto component = Renderer(container, [&] {
+    auto homepage_component = Renderer(container, [&] {
         std::vector<std::filesystem::directory_entry> res;
 
         try {
@@ -208,26 +208,24 @@ int main() {
             {
                 window(text("Target File"), search_bar.component->Render()) 
             }, {
-                window(text(title), view->Render() | frame | size(HEIGHT, LESS_THAN, 35))
+                window(text(title), view->Render() | frame | size(HEIGHT, EQUAL, 28))
             }, {
                 text(fmt::format("info: {}", info)) | border
-            },{
-                text(fmt::format("target: {}", search_bar.search_input.text)) | border
-            }
+            }        
         });
     });
+    homepage_component |= Modal(dialog.component, &dialog.shown); 
 
-
-    component |= CatchEvent([&](Event event) {
-        if (event == Event::Character('q')) {
-          screen.ExitLoopClosure()();
-          return true;
-        }
-
+    homepage_component |= CatchEvent([&](Event event) {
         if (event == Event::Character('x')) {
-            auto dir = file_model.file_entry[file_view.selected];
-            dialog.udpate_path(dir);
-            dialog.shown = true;
+            try {
+                auto dir = file_model.file_entry[file_view.selected];
+                info = dir.path().filename().string() + "test";
+                dialog.udpate_path(dir);
+                dialog.shown = true;
+            } catch (std::exception &e) {
+                info = e.what();
+            }
             return true;
         }
 
@@ -241,10 +239,43 @@ int main() {
         return false;
     });
 
+    auto recycle_bin_page = RecycleBin();   
 
+
+    std::vector<std::string> tab_values {
+        "HomePage",
+        "Recycle Bin",
+    };
+    int tab_selected = 0;
+    auto tab_menu = Menu(&tab_values, &tab_selected);
+
+    auto tab_container = Container::Tab({
+        homepage_component,
+        recycle_bin_page.componet,
+    }, &tab_selected);
+
+    auto total_container = Container::Horizontal({
+        tab_menu,
+        tab_container,
+    });
+
+    auto component = Renderer(total_container, [&] {
+        return hbox({
+            tab_menu->Render() | size(ftxui::WIDTH, ftxui::GREATER_THAN, 20),
+            separator(),
+            tab_container->Render(),
+        }) | border;
+    });
+
+    component |= CatchEvent([&](Event event) {
+        if (event == Event::Character('q')) {
+            screen.ExitLoopClosure()();
+            return true;
+        }
+        return false;
+    });
 
     screen.Loop(component);
-
     } catch (std::exception &e) {
         logger->debug("{}", e.what());
     }

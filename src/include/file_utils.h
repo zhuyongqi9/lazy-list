@@ -1,4 +1,5 @@
-
+#ifndef FILE_UTILS_H
+#define FILE_UTILS_H
 #include <string>
 #include <cstdint>
 #include <filesystem>
@@ -132,3 +133,17 @@ std::vector<std::filesystem::directory_entry> list_all(std::filesystem::path pat
     }
     return res;
 }
+
+std::vector<std::filesystem::directory_entry> list_all_no_cur(std::filesystem::path path) {
+    auto start = std::filesystem::directory_iterator(path, std::filesystem::directory_options::skip_permission_denied);
+    std::vector<std::filesystem::directory_entry> res;
+    try {
+        for (auto it = start; it != std::filesystem::end(start); it++) {
+            auto entry = *it;
+            res.push_back(entry);
+        }
+    } catch (std::filesystem::filesystem_error &e) {
+    }
+    return res;
+}
+#endif

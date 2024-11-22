@@ -1,14 +1,9 @@
-#include "fmt/core.h"
-#include <filesystem>
+#ifndef FILE_OPERATION_DIALOG_H
+#define FILE_OPERATION_DIALOG_H
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/event.hpp>
-#include <ftxui/dom/elements.hpp>
-#include <ftxui/dom/node.hpp>
-#include <functional>
-#include <stdexcept>
-#include <string>
 #include <unordered_map>
 #include <fmt/format.h>
 #include <file_operation.h>
@@ -95,7 +90,7 @@ public:
         component = Renderer(container, [&]() {
             return vbox ({
                 window(text(fmt::format(TITLE, this->src.filename().string())+ std::to_string(this->selected))  | color(Color::Green), menu->Render()),
-            });
+            }) | center;
         });
 
         component |= CatchEvent([&](Event event) {
@@ -204,8 +199,13 @@ private:
         }},
 
         {fmt::format("{: <8}Delete File", "D"), [&]()->void{
-            auto op = DeleteFileOperation(this->src);
-            op.perform();
+            auto op = SoftDeleteFileOperation(this->src);
+            try {
+                op.perform();
+                info = "File Deleted successfully";
+            } catch (std::runtime_error &e) {
+                info = e.what();
+            }
             this->shown = false;
         }},
 
@@ -232,9 +232,9 @@ private:
 
                 dst.f = [&](std::string &dst) {
                     try {
-                        auto op = DecompressFileOperation(this->src, dst);
+                        auto op = ExtractFileOperation(this->src, dst);
                         op.perform();
-                        info = fmt::format("File Decompressed successfully");
+                        info = fmt::format("File Extracted successfully");
                     } catch (std::runtime_error &e){
                         info = e.what();
                     }
@@ -248,3 +248,5 @@ private:
         }},
     };
 };
+
+#endif
