@@ -18,6 +18,7 @@
 #include "MESSAGE.h"
 #include "file_utils.h" 
 #include "search_bar.h"
+#include "bookmarks_page.h"
 #include "recycle_bin_page.h"
 #include "file_operation_dialog.h"
 #include <spdlog/spdlog.h>
@@ -241,16 +242,20 @@ int main() {
 
     auto recycle_bin_page = RecycleBin();   
 
-
     std::vector<std::string> tab_values {
         "HomePage",
+        "Bookmark",
         "Recycle Bin",
     };
+
     int tab_selected = 0;
     auto tab_menu = Menu(&tab_values, &tab_selected);
 
+    auto tab_bookmark_page = BookmarkPage();
+
     auto tab_container = Container::Tab({
         homepage_component,
+        tab_bookmark_page.compoent,
         recycle_bin_page.componet,
     }, &tab_selected);
 
