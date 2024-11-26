@@ -1,4 +1,5 @@
 #include <chrono>
+#include <functional>
 #include <streambuf>
 #include <string>
 #include <exception>
@@ -48,8 +49,8 @@ public:
         file_entry = search_file(name, path, options);
     }
 
-    void sorted_by_size() {
-        std::sort(file_entry.begin(), file_entry.end(), [](const std::filesystem::directory_entry &d1, const std::filesystem::directory_entry &d2)->bool{
+    void sorted_by_size(bool decrease) {
+        std::function<bool(const std::filesystem::directory_entry &d1, const std::filesystem::directory_entry &d2)> f = [] (const std::filesystem::directory_entry &d1, const std::filesystem::directory_entry &d2)->bool {
             if (d1.is_directory() && d2.is_directory()) {
                 if (d2.path().filename() == "..") {
                     return false;
@@ -69,7 +70,17 @@ public:
                     return false;
                 }
             }
-        });
+        };
+
+
+
+        if (decrease) {
+            std::sort(file_entry.begin(), file_entry.end(), f);
+        } else {
+            std::sort(file_entry.begin(), file_entry.end(), [&](const std::filesystem::directory_entry &d1, const std::filesystem::directory_entry &d2) -> bool{
+                return !f(d1, d2);
+            });
+        }
     }
 
     std::vector<std::filesystem::directory_entry> file_entry;
@@ -97,12 +108,6 @@ public:
         this->title += fmt::format("{: <40}", "name");
         this->title += fmt::format("{: <10}", "size");
         this->title += "   ";
-
-        if (options & last_modified_time) {
-            this->title += fmt::format("{: <17}", "Last Modified Time");
-        } else if (options & created_time) {
-            this->title += fmt::format("{: <17}", "Created Time");
-        }
 
         for (const auto &item : model.file_entry) {
             std::string s = "";
@@ -217,15 +222,41 @@ public:
             file_view.render(file_model, this->options);
         };
 
+
         this->view = Menu(&file_view.table, &file_view.selected, option);
+
+        this->file_time_drop = Dropdown(
+            &(this->file_time_type),
+            &(this->file_time_selected)
+        );
+
+        this->file_size_drop = Dropdown(
+            &(this->file_size_type),
+            &(this->file_size_selected)
+        );
 
         this->container = Container::Stacked({
             search_bar.component,
+            this->file_time_drop,
+            this->file_size_drop,
             view,
         });
 
+
         this->component = Renderer(container, [&] {
             std::vector<std::filesystem::directory_entry> res;
+            this->options &= ~FileEntryView::show_options::last_modified_time;
+            this->options &= ~FileEntryView::show_options::created_time;
+            switch (file_time_selected) {
+                case 0:
+                    this->options |= FileEntryView::show_options::last_modified_time;
+                    break;
+                case 1:
+                    this->options |= FileEntryView::show_options::created_time;
+                    break;
+                default:
+                    this->options |= FileEntryView::show_options::last_modified_time;
+            }
 
             try {
                 if (search_bar.text().length() > 0) {
@@ -237,11 +268,17 @@ public:
                     file_view.render(file_model, FileEntryView::show_options::search);
                 } else if (search_bar.text().size() == 0) {
                     file_model.list(current_dir);
+                    if (file_size_selected == 0) {
+                        file_model.sorted_by_size(true);
+                    } else if (file_size_selected == 1) {
+                        file_model.sorted_by_size(false);
+                    }
                     file_view.render(file_model, this->options);
                 }
             } catch (std::exception &ex) {
                 home_page_info = ex.what();
             }
+
 
             std::string title = search_bar.text().size() > 0 ? "Search Results" : "Files";
 
@@ -253,7 +290,11 @@ public:
                     window(text("Target File"), search_bar.component->Render()) 
                 }, {
                     window(text(title), vbox({
-                        text(file_view.title),
+                        hbox({
+                            text(file_view.title),
+                            this->file_size_drop->Render(),
+                            this->file_time_drop->Render() | flex,
+                        }),
                         view->Render() | frame | size(HEIGHT, EQUAL, 28),
                     }))
                 }, {
@@ -290,6 +331,13 @@ public:
     Component component;
     Component container;
     Component view;
+    Component file_time_drop;
+    std::vector<std::string> file_time_type = {"Last Modified Time", "Created Time"};
+    int file_time_selected;
+
+    Component file_size_drop;
+    std::vector<std::string> file_size_type = {"Decrease", "Increase"};
+    int file_size_selected;
     
     std::filesystem::path current_dir =  std::filesystem::current_path();
 
