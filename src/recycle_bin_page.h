@@ -11,6 +11,8 @@
 #include <file_utils.h>
 #include <file_operation.h>
 #include <global_var.h>
+#include "config_parser.h"
+extern Config config;
 
 using namespace ftxui;
 
@@ -77,7 +79,7 @@ public:
 
 class RecycleBin {
 public:
-    RecycleBin():path(RECYCLE_BIN_PATH) {
+    RecycleBin():path(config.recycle_bin_path) {
         std::error_code ec;
         if (!std::filesystem::exists(path, ec)) {
             if (ec.value() != 0) {
