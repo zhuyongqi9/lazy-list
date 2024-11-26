@@ -12,11 +12,12 @@
 #include <functional>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <fmt/format.h>
 #include <file_operation.h>
 #include <vector>
 #include "file_operation_dialog.h"
+#include "config_parser.h"
+extern Config config;
 
 using namespace ftxui;
 
@@ -97,17 +98,6 @@ private:
     std::filesystem::path src;
 
     std::vector<std::pair<std::string, std::function<void()>>> handle_map = {
-        {fmt::format("{: <8}Permanently deleted the file.", "c"), [&]()->void{
-            auto op = DeleteFileOperation(this->src);
-            try {
-                op.perform();
-                recycle_bin_page_info = "File Deleted successfully";
-            } catch (std::runtime_error &e) {
-                recycle_bin_page_info = e.what();
-            }
-            this->shown = false;
-        }},
-
         {fmt::format("{: <8}Restore File", "C"), [&]()->void{
             dst.shown = true;
             auto str = this->src.filename().string();
@@ -129,6 +119,31 @@ private:
                 this->shown = false;
             };
         }},
+        {fmt::format("{: <8}Permanently deleted the file.", "c"), [&]()->void{
+            auto op = DeleteFileOperation(this->src);
+            try {
+                op.perform();
+                recycle_bin_page_info = "File Deleted successfully";
+            } catch (std::runtime_error &e) {
+                recycle_bin_page_info = e.what();
+            }
+            this->shown = false;
+        }},
+        {fmt::format("{: <8}Empty Recycle Bin", "c"), [&]()->void{
+            try {
+                auto path = this->src.parent_path();
+                auto op = DeleteFileOperation(path);
+                op.perform();
+                auto op2 = CreateFolderOperation(path);
+                op2.perform();
+                recycle_bin_page_info = "Recycle Bin emptied successfully.";
+            } catch (std::runtime_error &e) {
+                recycle_bin_page_info = "Failed to empty the Recycle Bin.";
+                recycle_bin_page_info = e.what();
+            }
+            this->shown = false;
+        }},
+
     };
 };
 #endif

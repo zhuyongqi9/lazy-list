@@ -1,3 +1,5 @@
+#include <chrono>
+#include <streambuf>
 #include <string>
 #include <exception>
 #include <ftxui/component/component_base.hpp>
@@ -13,11 +15,13 @@
 #include <filesystem>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <fmt/chrono.h>
 #include <vector>
 #include "MESSAGE.h"
 #include "file_utils.h" 
 #include "search_bar.h"
 #include "file_operation_dialog.h"
+#include <sys/stat.h>
 
 std::string home_page_info;
 
@@ -34,6 +38,7 @@ public:
     void list(std::filesystem::path &path) {
         try {
             file_entry = list_all(path);
+//            sorted_by_size();
         } catch (std::filesystem::filesystem_error &e) {
             file_entry.clear();
         }
@@ -41,6 +46,30 @@ public:
 
     void search(std::string name, std::filesystem::path path,int options) {
         file_entry = search_file(name, path, options);
+    }
+
+    void sorted_by_size() {
+        std::sort(file_entry.begin(), file_entry.end(), [](const std::filesystem::directory_entry &d1, const std::filesystem::directory_entry &d2)->bool{
+            if (d1.is_directory() && d2.is_directory()) {
+                if (d2.path().filename() == "..") {
+                    return false;
+                } else {
+                    return true;
+                }
+            } else if (d1.is_directory()) {
+                return true;
+            } else if (d2.is_directory()) {
+                return false;
+            } else {
+                try {
+                    auto s1 = std::filesystem::file_size(d1);
+                    auto s2 = std::filesystem::file_size(d2);
+                    return s1 > s2;
+                } catch (std::filesystem::filesystem_error &e) {
+                    return false;
+                }
+            }
+        });
     }
 
     std::vector<std::filesystem::directory_entry> file_entry;
@@ -55,6 +84,8 @@ public:
         directory_size = 1,
         file_size = 1 << 2,
         full_path = 1 << 3,
+        last_modified_time = 1 << 4,
+        created_time = 1 << 5,
 
         list = file_size,
         search = full_path,
@@ -79,8 +110,38 @@ public:
             } else if (item.is_directory()) {
                 if (options & show_options::directory_size) {
                     std::string ssize = formatted_directory_size(item);
+                    s += ssize;
+                } else {
+                    s += fmt::format("{: >10}", "");
+                }
+            } else {
+                s += fmt::format("{: >10}", "");
+            }
+            s += "  ";
+
+            if (item.path().filename() != "..") {
+                if (options & last_modified_time) {
+                    struct stat f_stat;
+                    if (stat(item.path().c_str(), &f_stat) == 0) {
+                        std::time_t mtime = f_stat.st_mtime;
+                        auto t = fmt::localtime(mtime);
+                        s += fmt::format("{:%Y/%m/%d %H:%M:%S}", t);
+                    }
+                } else if (options & created_time) {
+                    struct stat f_stat;
+                    if (stat(item.path().c_str(), &f_stat) == 0) {
+                        #ifdef _DARWIN_FEATURE_64_BIT_INODE
+                            std::time_t mtime = f_stat.st_birthtime;
+                        #else
+                            std::time_t mtime = f_stat.st_ctime;
+                        #endif
+                        auto t = fmt::localtime(mtime);
+                        s += fmt::format("{:%Y/%m/%d %H:%M:%S}", t);
+                    }
+
                 }
             }
+
             table.push_back(s);
         }
 
@@ -91,12 +152,13 @@ public:
 };
 
 
-
 class HomePage {
 public:
     HomePage() {
+        this->options = FileEntryView::show_options::list | FileEntryView::show_options::created_time;
+
         file_model.list(current_dir);
-        file_view.render(file_model, FileEntryView::show_options::list);
+        file_view.render(file_model, this->options);
 
         MenuOption option = MenuOption::Vertical();
 
@@ -142,7 +204,7 @@ public:
             }
 
             file_model.list(current_dir);
-            file_view.render(file_model, FileEntryView::show_options::list);
+            file_view.render(file_model, this->options);
         };
 
         this->view = Menu(&file_view.table, &file_view.selected, option);
@@ -165,7 +227,7 @@ public:
                     file_view.render(file_model, FileEntryView::show_options::search);
                 } else if (search_bar.text().size() == 0) {
                     file_model.list(current_dir);
-                    file_view.render(file_model, FileEntryView::show_options::list);
+                    file_view.render(file_model, this->options);
                 }
             } catch (std::exception &ex) {
                 home_page_info = ex.what();
@@ -223,4 +285,5 @@ public:
     FileEntryView file_view = FileEntryView();
 
     FileOperationDialog dialog = FileOperationDialog(this->current_dir);
+    int options;
 };
