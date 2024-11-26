@@ -227,27 +227,21 @@ private:
                 this->shown = false;
             };
         }},
-        {fmt::format("{: <8}Decompress File", "d"), [&]()->void{
-            if (src.extension() == ".zip") {
-                dst.shown = true;
-                auto path = this->src.parent_path() / fmt::format("{}", filename_without_ext(this->src));
-                dst.message = path.string();
+        {fmt::format("{: <8}Extract File", "d"), [&]()->void{
+            dst.shown = true;
+            auto path = this->src.parent_path() / fmt::format("{}", filename_without_ext(this->src));
+            dst.message = path.string();
 
-                dst.f = [&](std::string &dst) {
-                    try {
-                        auto op = ExtractFileOperation(this->src, dst);
-                        op.perform();
-                        home_page_info = fmt::format("File Extracted successfully");
-                    } catch (std::runtime_error &e){
-                        home_page_info = e.what();
-                    }
-                    this->shown = false;
-                };
-
-            } else {
-                home_page_info = "Unsupported File";
+            dst.f = [&](std::string &dst) {
+                try {
+                    auto op = ExtractFileOperation(this->src, dst);
+                    op.perform();
+                    home_page_info = fmt::format("File Extracted successfully");
+                } catch (std::runtime_error &e){
+                    home_page_info = e.what();
+                }
                 this->shown = false;
-            }
+            };
         }},
 
         {fmt::format("{: <8}Add to bookmark", "d"), [&]()->void{

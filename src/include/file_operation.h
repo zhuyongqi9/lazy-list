@@ -212,7 +212,18 @@ public:
         std::error_code ec;
         if (exists(src, ec)) {
             if (!exists(dst, ec)) {
-                auto cmd = fmt::format("unzip {} -d {}", src.string(), dst.string());
+                std::string cmd;
+                if (src.extension().string() == ".zip") {
+                    cmd = fmt::format("unzip {} -d {}", src.string(), dst.string());
+                } else if (src.extension().string() == ".gz") {
+                    // tar need to create folder manully
+                    auto op = CreateFolderOperation(dst);
+                    op.perform();
+                    cmd = fmt::format("tar -xzf {} -C {}", src.string(), dst.string());
+                } else {
+                    throw std::runtime_error("Unsuppored compressed file");
+                }
+
                 int ret = 0;
                 auto f = [&] () {
                     ret = std::system(cmd.c_str());
