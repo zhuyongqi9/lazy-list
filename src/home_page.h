@@ -93,6 +93,16 @@ public:
 
     void render(FileEntryModel &model, int options) {
         table.clear();
+        this->title = "  ";
+        this->title += fmt::format("{: <40}", "name");
+        this->title += fmt::format("{: <10}", "size");
+        this->title += "   ";
+
+        if (options & last_modified_time) {
+            this->title += fmt::format("{: <17}", "Last Modified Time");
+        } else if (options & created_time) {
+            this->title += fmt::format("{: <17}", "Created Time");
+        }
 
         for (const auto &item : model.file_entry) {
             std::string s = "";
@@ -117,7 +127,7 @@ public:
             } else {
                 s += fmt::format("{: >10}", "");
             }
-            s += "  ";
+            s += "   ";
 
             if (item.path().filename() != "..") {
                 if (options & last_modified_time) {
@@ -138,7 +148,6 @@ public:
                         auto t = fmt::localtime(mtime);
                         s += fmt::format("{:%Y/%m/%d %H:%M:%S}", t);
                     }
-
                 }
             }
 
@@ -148,6 +157,7 @@ public:
     }
 
     std::vector<std::string> table;
+    std::string title = "";
     int selected;
 };
 
@@ -242,7 +252,10 @@ public:
                 {
                     window(text("Target File"), search_bar.component->Render()) 
                 }, {
-                    window(text(title), view->Render() | frame | size(HEIGHT, EQUAL, 28))
+                    window(text(title), vbox({
+                        text(file_view.title),
+                        view->Render() | frame | size(HEIGHT, EQUAL, 28),
+                    }))
                 }, {
                     text(fmt::format("info: {}", home_page_info)) | border
                 }        
