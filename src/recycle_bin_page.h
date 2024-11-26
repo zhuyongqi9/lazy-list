@@ -124,7 +124,7 @@ public:
 
         this->file_entry = ftxui::Menu(&view.table, &view.selected, option);
         this->container = Container::Stacked({this->file_entry});
-        this->componet = Renderer(this->container, [&](){
+        this->component = Renderer(this->container, [&](){
             this->model.list(path);
             this->view.render(this->model, ReFileEntryView::list | ReFileEntryView::directory_size);
 
@@ -135,8 +135,8 @@ public:
             });
         });
 
-        this->componet |= Modal(dialog.component, &dialog.shown);
-        this->componet |= CatchEvent([&](Event event) {
+        this->component |= Modal(dialog.component, &dialog.shown);
+        this->component |= CatchEvent([&](Event event) {
             if (event == Event::Character('x')) {
                 auto dir = this->model.file_entry[view.selected];
                 dialog.udpate_path(dir);
@@ -148,7 +148,7 @@ public:
         });
     }
 
-    Component componet;
+    Component component;
     std::filesystem::path path;
     ReFileEntryModel model;
     ReFileEntryView view;
