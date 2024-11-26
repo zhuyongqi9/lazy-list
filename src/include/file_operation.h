@@ -12,6 +12,9 @@
 #include <fstream>
 #include <thread>
 #include "global_var.h"
+#include "config_parser.h"
+
+extern Config config;
 
 class FileOperation {
 public:
@@ -243,4 +246,5 @@ std::string filename_without_ext(const std::filesystem::path &path) {
         return name;
     }
 };
+
 #endif

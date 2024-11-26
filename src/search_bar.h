@@ -1,3 +1,5 @@
+#ifndef SEARCH_BAR_H
+#define SEARCH_BAR_H
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
@@ -114,3 +116,4 @@ public:
     bool regex() { return button_regex.clicked; }
     bool case_ignored() { return button_case_ignored.clicked; }
 };
+#endif

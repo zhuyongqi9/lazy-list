@@ -4,10 +4,13 @@
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/event.hpp>
+#include <stdexcept>
 #include <unordered_map>
 #include <fmt/format.h>
 #include <file_operation.h>
 #include <vector>
+#include "config_parser.h"
+extern Config config;
 
 using namespace ftxui;
 
@@ -15,7 +18,7 @@ using namespace ftxui;
 static const std::string TITLE = "Selected file: \"{}\" <Esc>";
 //=====================================
 
-extern std::string info;
+extern std::string home_page_info;
 
 class DstDialog {
 public:
@@ -131,9 +134,9 @@ private:
                 try {
                     auto op = CreateFileOperation(dst);
                     op.perform();
-                    info = fmt::format("File {} created successfully.!", dst);
+                    home_page_info = fmt::format("File {} created successfully.!", dst);
                 } catch (std::runtime_error &e){
-                    info = e.what();
+                    home_page_info = e.what();
                 }
                 this->shown = false;
             };
@@ -145,9 +148,9 @@ private:
                 try {
                     auto op = CreateFolderOperation(dst);
                     op.perform();
-                    info = fmt::format("Folder {} created successfully.!", dst);
+                    home_page_info = fmt::format("Folder {} created successfully.!", dst);
                 } catch (std::runtime_error &e){
-                    info = e.what();
+                    home_page_info = e.what();
                 }
                 this->shown = false;
             };
@@ -160,9 +163,9 @@ private:
                     std::filesystem::path target = this->src.parent_path() / dst;
                     auto op = MoveFileOperation(this->src, target);
                     op.perform();
-                    info = fmt::format("File renamed successfully.");
+                    home_page_info = fmt::format("File renamed successfully.");
                 } catch (std::runtime_error &e){
-                    info = e.what();
+                    home_page_info = e.what();
                 }
                 this->shown = false;
             };
@@ -175,9 +178,9 @@ private:
                 try {
                     auto op = CopyFileOperation(this->src, dst);
                     op.perform();
-                    info = fmt::format("File copied successfully.");
+                    home_page_info = fmt::format("File copied successfully.");
                 } catch (std::runtime_error &e){
-                    info = e.what();
+                    home_page_info = e.what();
                 }
                 this->shown = false;
             };
@@ -190,9 +193,9 @@ private:
                 try {
                     auto op = MoveFileOperation(this->src, dst);
                     op.perform();
-                    info = fmt::format("File copied successfully.");
+                    home_page_info = fmt::format("File copied successfully.");
                 } catch (std::runtime_error &e){
-                    info = e.what();
+                    home_page_info = e.what();
                 }
                 this->shown = false;
             };
@@ -202,9 +205,9 @@ private:
             auto op = SoftDeleteFileOperation(this->src);
             try {
                 op.perform();
-                info = "File Deleted successfully";
+                home_page_info = "File Deleted successfully";
             } catch (std::runtime_error &e) {
-                info = e.what();
+                home_page_info = e.what();
             }
             this->shown = false;
         }},
@@ -217,9 +220,9 @@ private:
                 try {
                     auto op = CompressFileOperation(this->src, dst);
                     op.perform();
-                    info = fmt::format("File compressed successfully");
+                    home_page_info = fmt::format("File compressed successfully");
                 } catch (std::runtime_error &e){
-                    info = e.what();
+                    home_page_info = e.what();
                 }
                 this->shown = false;
             };
@@ -234,15 +237,31 @@ private:
                     try {
                         auto op = ExtractFileOperation(this->src, dst);
                         op.perform();
-                        info = fmt::format("File Extracted successfully");
+                        home_page_info = fmt::format("File Extracted successfully");
                     } catch (std::runtime_error &e){
-                        info = e.what();
+                        home_page_info = e.what();
                     }
                     this->shown = false;
                 };
 
             } else {
-                info = "Unsupported File";
+                home_page_info = "Unsupported File";
+                this->shown = false;
+            }
+        }},
+
+        {fmt::format("{: <8}Add to bookmark", "d"), [&]()->void{
+            if (std::filesystem::directory_entry(src).is_directory()) {
+                try {
+                    config.bookmark.push_back(src);
+                    config.store();
+                    home_page_info = "Successfully added to Bookmarks";
+                } catch (std::runtime_error &e) {
+                    home_page_info = fmt::format("failed to add to bookmark, e:{}" , e.what());
+                }
+                this->shown = false;
+            } else {
+                home_page_info = "Can only add folder to bookmark";
                 this->shown = false;
             }
         }},
