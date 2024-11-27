@@ -1,5 +1,6 @@
 #ifndef FILE_UTILS_H
 #define FILE_UTILS_H
+#include <stdexcept>
 #include <string>
 #include <cstdint>
 #include <filesystem>
@@ -38,19 +39,20 @@ static uint64_t cacl_directory_size(const std::filesystem::path &path) {
 }
 
 std::string formatted_directory_size(const std::filesystem::path &path) {
-    uint64_t res = cacl_directory_size(path);
-    return formatted_size(res);
+    try {
+        uint64_t size = cacl_directory_size(path);
+        return formatted_size(size);
+    } catch (const std::exception &e) {
+        //return fmt::format("{:>6}NULL", e.what());
+        return fmt::format("{:>6}NULL", "");
+    }
 }
 
 std::string formatted_file_size(const std::filesystem::path &path) {
     try {
         auto entry = std::filesystem::directory_entry(path);
         uint64_t size;
-        if (entry.is_regular_file()) {
-            size = entry.file_size();
-        } else {
-            size = 0;
-        }
+        size = entry.file_size();
         return formatted_size(size);
     } catch (const std::exception &e) {
         //return fmt::format("{:>6}NULL", e.what());
@@ -122,17 +124,21 @@ std::vector<std::filesystem::directory_entry> search_file(std::string &name, std
 
 
 std::vector<std::filesystem::directory_entry> list_all(std::filesystem::path path) {
-    auto start = std::filesystem::directory_iterator(path, std::filesystem::directory_options::skip_permission_denied);
     std::vector<std::filesystem::directory_entry> res;
-    res.push_back(std::filesystem::directory_entry(".."));
+
     try {
+        auto start = std::filesystem::directory_iterator(path, std::filesystem::directory_options::skip_permission_denied);
+        res.push_back(std::filesystem::directory_entry(".."));
+
         for (auto it = start; it != std::filesystem::end(start); it++) {
             auto entry = *it;
             res.push_back(entry);
         }
+
+        return res;
     } catch (std::filesystem::filesystem_error &e) {
+        throw std::runtime_error("failed to list"); 
     }
-    return res;
 }
 
 std::vector<std::filesystem::directory_entry> list_all_no_cur(std::filesystem::path path) {

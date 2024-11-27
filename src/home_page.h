@@ -22,6 +22,7 @@
 #include <vector>
 #include "MESSAGE.h"
 #include "file_utils.h" 
+#include "global_var.h"
 #include "search_bar.h"
 #include "file_operation_dialog.h"
 #include <sys/stat.h>
@@ -40,39 +41,49 @@ public:
 
     void list(std::filesystem::path &path) {
         try {
-            file_entry = list_all(path);
-        } catch (std::filesystem::filesystem_error &e) {
-            file_entry.clear();
+            this->file_entry = list_all(path);
+        } catch (std::runtime_error &e) {
+            this->file_entry = std::vector<std::filesystem::directory_entry>(0);
+            home_page_info = e.what();
         }
     }
 
     void search(std::string name, std::filesystem::path path,int options) {
-        file_entry = search_file(name, path, options);
+        this->file_entry = search_file(name, path, options);
     }
 
     void sorted_by_size(bool decrease) {
         std::function<bool(const std::filesystem::directory_entry &d1, const std::filesystem::directory_entry &d2)> f = [] (const std::filesystem::directory_entry &d1, const std::filesystem::directory_entry &d2)->bool {
-            if (d1.is_directory() && d2.is_directory()) {
-                if (d2.path().filename() == "..") {
+            try {
+                if (d1.is_directory() && d2.is_directory()) {
+                    if (d1.path().filename() == "..") {
+                        return true;
+                    } else if (d2.path().filename() == "..") {
+                        return false;
+                    } else {
+                        return d1.path() > d2.path();
+                    }
+                } else if (d1.is_directory()) {
+                    return true;
+                } else if (d2.is_directory()) {
                     return false;
                 } else {
-                    return true;
+                    try {
+                        fmt::println("{} {}", d1.path().string(), d2.path().string());
+                        auto s1 = d1.file_size();
+                        auto s2 = d2.file_size();
+                        return s1 > s2;
+                    } catch (std::filesystem::filesystem_error &e) {
+                        fmt::println("{}", e.what());
+                        return false;
+                    }
                 }
-            } else if (d1.is_directory()) {
-                return true;
-            } else if (d2.is_directory()) {
+            } catch (std::filesystem::filesystem_error &e) {
                 return false;
-            } else {
-                try {
-                    auto s1 = std::filesystem::file_size(d1);
-                    auto s2 = std::filesystem::file_size(d2);
-                    return s1 > s2;
-                } catch (std::filesystem::filesystem_error &e) {
-                    return false;
-                }
+            } catch (std::exception &e) {
+                return false;
             }
         };
-
 
 
         if (decrease) {
@@ -90,14 +101,11 @@ public:
         for (auto &item : this->file_entry) {
             std::uint64_t size;
             if (item.is_directory()) size = cacl_directory_size(item);
-            else if (item.is_regular_file()) size = item.file_size();
-            else continue;
+            else size = item.file_size();
 
-            if (min != 0) {
-                if (size < min) {
-                    continue;
-                }
-            } 
+            if (size < min) {
+                continue;
+            }
 
             if (max != 0) {
                 if (size > max) {
@@ -132,7 +140,8 @@ public:
     void render(FileEntryModel &model, int options) {
         table.clear();
         this->title = "  ";
-        this->title += fmt::format("{: <40}", "name");
+        std::string file_name_format = fmt::format("{{: <{}.{}}}", FILENAME_LENGTH_MAX, FILENAME_LENGTH_MAX);
+        this->title += fmt::format(file_name_format, "name");
         this->title += fmt::format("{: <10}", "size");
         this->title += "   ";
 
@@ -141,7 +150,7 @@ public:
             if (options & full_path) {
                 s += fmt::format("{: <40}", item.path().string());
             } else {
-                s += fmt::format("{: <40}", item.path().filename().string());
+                s += fmt::format(file_name_format, item.path().filename().string());
             }
 
             if (item.is_regular_file()) {
@@ -206,7 +215,9 @@ public:
                 try {
                     this->min_size = std::stoll(this->str_min_size);
                 } catch (std::invalid_argument &e) {
+                    this->min_size = 0;
                 } catch (std::out_of_range &e) {
+                    this->min_size = 0;
                 }
             }
             return hbox({
@@ -275,9 +286,6 @@ public:
                 } catch (std::filesystem::filesystem_error &e) {
                 }
             }
-
-            file_model.list(current_dir);
-            file_view.render(file_model, this->show_options);
         };
 
 
@@ -311,17 +319,8 @@ public:
             std::vector<std::filesystem::directory_entry> res;
             this->show_options = 0;
             this->show_options |= FileEntryView::show_options::file_size;
-
-            switch (file_time_selected) {
-                case 0:
-                    this->show_options |= FileEntryView::show_options::last_modified_time;
-                    break;
-                case 1:
-                    this->show_options |= FileEntryView::show_options::created_time;
-                    break;
-                default:
-                    this->show_options |= FileEntryView::show_options::last_modified_time;
-            }
+            
+            this->update_file_time_show_options();
 
             try {
                 if (search_bar.text().length() > 0) {
@@ -341,15 +340,18 @@ public:
 
                 } else if (search_bar.text().size() == 0) {
                     file_model.list(current_dir);
+
                     if (file_sorted_selected == 0) {
                         file_model.sorted_by_size(true);
                     } else if (file_sorted_selected == 1) {
                         file_model.sorted_by_size(false);
                     }
-                    if (this->show_filter_bar) {
-                        this->file_model.filter_file_size(this->filter_bar.min_size * MB, 0);
-                        this->show_options |= FileEntryView::show_options::directory_size;
-                    } 
+
+
+                    //if (this->show_filter_bar) {
+                    //    this->file_model.filter_file_size(this->filter_bar.min_size * MB, 0);
+                    //    this->show_options |= FileEntryView::show_options::directory_size;
+                    //} 
 
                     file_view.render(file_model, this->show_options);
                 }
@@ -463,4 +465,18 @@ public:
 
     FileOperationDialog dialog = FileOperationDialog(this->current_dir);
     int show_options;
+
+private:
+    void update_file_time_show_options() {
+        switch (file_time_selected) {
+            case 0:
+                this->show_options |= FileEntryView::show_options::last_modified_time;
+                break;
+            case 1:
+                this->show_options |= FileEntryView::show_options::created_time;
+                break;
+            default:
+                this->show_options |= FileEntryView::show_options::last_modified_time;
+        }
+    }
 };
