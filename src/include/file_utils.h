@@ -6,6 +6,7 @@
 #include <regex>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <vector>
 
 static std::string formatted_size(uint64_t size) {
     if (size < 1024) {
@@ -26,7 +27,7 @@ static std::string formatted_size(uint64_t size) {
     }
 } 
 
-static uint64_t cacl_directory_size(std::filesystem::path &path) {
+static uint64_t cacl_directory_size(const std::filesystem::path &path) {
     auto it = std::filesystem::recursive_directory_iterator(path);
     uint64_t res = 0;
     for (auto start = it; it != std::filesystem::end(it); it++) {
@@ -36,12 +37,12 @@ static uint64_t cacl_directory_size(std::filesystem::path &path) {
     return res;
 }
 
-std::string formatted_directory_size(std::filesystem::path path) {
+std::string formatted_directory_size(const std::filesystem::path &path) {
     uint64_t res = cacl_directory_size(path);
     return formatted_size(res);
 }
 
-std::string formatted_file_size(std::filesystem::path path) {
+std::string formatted_file_size(const std::filesystem::path &path) {
     try {
         auto entry = std::filesystem::directory_entry(path);
         uint64_t size;
@@ -146,4 +147,7 @@ std::vector<std::filesystem::directory_entry> list_all_no_cur(std::filesystem::p
     }
     return res;
 }
+
+
+
 #endif
