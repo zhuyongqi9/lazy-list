@@ -29,8 +29,8 @@ static std::string formatted_size(uint64_t size) {
 } 
 
 static uint64_t cacl_directory_size(const std::filesystem::path &path) {
-    auto it = std::filesystem::recursive_directory_iterator(path);
     uint64_t res = 0;
+    auto it = std::filesystem::recursive_directory_iterator(path);
     for (auto start = it; it != std::filesystem::end(it); it++) {
         if (it->is_regular_file())
             res += (*it).file_size();
@@ -69,7 +69,7 @@ enum search_options {
     caseignored = 1 << 2,
 };
 
-bool skipped(std::string &path) {
+static bool skipped(std::string &path) {
     for (auto &item : skipped_file) if (item == path) return true;
     return false;
 }
@@ -122,16 +122,31 @@ std::vector<std::filesystem::directory_entry> search_file(std::string &name, std
     return res;
 }
 
+enum list_options {
+    parent_path = 1,
+    dot_file = 1 << 1,
+};
 
-std::vector<std::filesystem::directory_entry> list_all(std::filesystem::path path) {
+std::vector<std::filesystem::directory_entry> list_all(std::filesystem::path path, int options) {
     std::vector<std::filesystem::directory_entry> res;
 
     try {
         auto start = std::filesystem::directory_iterator(path, std::filesystem::directory_options::skip_permission_denied);
-        res.push_back(std::filesystem::directory_entry(".."));
+        if (options & parent_path) {
+            res.push_back(std::filesystem::directory_entry(".."));
+        }
 
         for (auto it = start; it != std::filesystem::end(start); it++) {
             auto entry = *it;
+            auto name = entry.path().filename().string();
+            if (name.size() > 0 && name[0] == '.') {
+                if (options & dot_file) {
+                   // 
+                } else {
+                    continue;
+                }
+            }
+
             res.push_back(entry);
         }
 
@@ -140,20 +155,4 @@ std::vector<std::filesystem::directory_entry> list_all(std::filesystem::path pat
         throw std::runtime_error("failed to list"); 
     }
 }
-
-std::vector<std::filesystem::directory_entry> list_all_no_cur(std::filesystem::path path) {
-    auto start = std::filesystem::directory_iterator(path, std::filesystem::directory_options::skip_permission_denied);
-    std::vector<std::filesystem::directory_entry> res;
-    try {
-        for (auto it = start; it != std::filesystem::end(start); it++) {
-            auto entry = *it;
-            res.push_back(entry);
-        }
-    } catch (std::filesystem::filesystem_error &e) {
-    }
-    return res;
-}
-
-
-
 #endif

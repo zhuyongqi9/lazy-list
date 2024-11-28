@@ -31,20 +31,15 @@ std::string home_page_info;
 
 class FileEntryModel {
 public:
-    enum search_options {
-        regex = 1 << 1,
-        caseignored = 1 << 2,
-    };
-
     FileEntryModel(): file_entry(0) {
     }
 
     void list(std::filesystem::path &path) {
         try {
-            this->file_entry = list_all(path);
+            this->file_entry = list_all(path, list_options::parent_path);
         } catch (std::runtime_error &e) {
             this->file_entry = std::vector<std::filesystem::directory_entry>(0);
-            home_page_info = e.what();
+            home_page_info = std::string("Failed to list files ") + e.what();
         }
     }
 
@@ -69,12 +64,10 @@ public:
                     return false;
                 } else {
                     try {
-                        fmt::println("{} {}", d1.path().string(), d2.path().string());
                         auto s1 = d1.file_size();
                         auto s2 = d2.file_size();
                         return s1 > s2;
                     } catch (std::filesystem::filesystem_error &e) {
-                        fmt::println("{}", e.what());
                         return false;
                     }
                 }
@@ -100,8 +93,14 @@ public:
 
         for (auto &item : this->file_entry) {
             std::uint64_t size;
-            if (item.is_directory()) size = cacl_directory_size(item);
-            else size = item.file_size();
+
+            if (item.is_directory()) { 
+                try {
+                    size = cacl_directory_size(item);
+                } catch (std::filesystem::filesystem_error &e) {
+                    size = 0;
+                }
+            } else size = item.file_size();
 
             if (size < min) {
                 continue;
@@ -348,10 +347,10 @@ public:
                     }
 
 
-                    //if (this->show_filter_bar) {
-                    //    this->file_model.filter_file_size(this->filter_bar.min_size * MB, 0);
-                    //    this->show_options |= FileEntryView::show_options::directory_size;
-                    //} 
+                    if (this->show_filter_bar) {
+                        this->file_model.filter_file_size(this->filter_bar.min_size * MB, 0);
+                        this->show_options |= FileEntryView::show_options::directory_size;
+                    } 
 
                     file_view.render(file_model, this->show_options);
                 }
