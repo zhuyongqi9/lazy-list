@@ -138,8 +138,8 @@ public:
 
     void render(FileEntryModel &model, int options) {
         table.clear();
-        this->title = "  ";
         std::string file_name_format = fmt::format("{{: <{}.{}}}", FILENAME_LENGTH_MAX, FILENAME_LENGTH_MAX);
+        this->title = "  ";
         this->title += fmt::format(file_name_format, "name");
         this->title += fmt::format("{: <10}", "size");
         this->title += "   ";
@@ -290,15 +290,44 @@ public:
 
         this->view = Menu(&file_view.table, &file_view.selected, option);
 
-        this->file_time_drop = Dropdown(
-            &(this->file_time_type),
-            &(this->file_time_selected)
-        );
+        this->file_time_drop = Dropdown({
+            .radiobox = {&this->file_time_type, &this->file_time_selected},
+            .transform =
+                [](bool open, Element checkbox, Element radiobox) {
+                if (open) {
+                  return vbox({
+                      checkbox | inverted,
+                      radiobox | vscroll_indicator | frame |
+                          size(HEIGHT, LESS_THAN, 10),
+                      filler(),
+                  });
+                } else {
+                    return vbox({
+                        checkbox,
+                        filler(),
+                    });
+                }
+            },
+        });
 
-        this->file_sorted_drop = Dropdown(
-            &(this->file_sorted_type),
-            &(this->file_sorted_selected)
-        );
+        this->file_sorted_drop = Dropdown({
+            .radiobox = {&this->file_sorted_type, &this->file_sorted_selected},
+            .transform =
+                [](bool open, Element checkbox, Element radiobox) {
+                if (open) {
+                  return vbox({
+                      checkbox | inverted,
+                      radiobox | vscroll_indicator | frame |
+                          size(HEIGHT, LESS_THAN, 10),
+                      filler(),
+                  });
+                }
+                return vbox({
+                    checkbox,
+                    filler(),
+                });
+            },
+        });
 
         this->button_filter_bar = Button("Filter", [&]() {
             this->show_filter_bar = !this->show_filter_bar;
@@ -362,58 +391,37 @@ public:
 
             std::string title = search_bar.text().size() > 0 ? "Search Results" : "Files";
 
+            std::string file_name_format = fmt::format("{{: <{}.{}}}", FILENAME_LENGTH_MAX, FILENAME_LENGTH_MAX);
+            std::string fileview_title = "  ";
+            fileview_title += fmt::format(file_name_format, "name");
+            fileview_title += fmt::format("{: <10}", "size");
+            fileview_title += "   ";
+
+            std::vector<Element> elements(0);
+            elements.push_back(text(fmt::format("Current Dir: {}", current_dir.string())) | bold);
+            elements.push_back(
+                hbox({
+                window(text("Target File"), search_bar.component->Render()) ,
+                    this->button_filter_bar->Render() | align_right,
+            }));
             if (this->show_filter_bar) {
-                return gridbox({
-                    {
-                        text(fmt::format("Current Dir: {}", current_dir.string())) | bold,
-                    },
-                    {
-                        hbox({
-                            window(text("Target File"), search_bar.component->Render()) ,
-                            this->button_filter_bar->Render() | align_right,
-                        })
-                    }, 
-                    {
-                        this->filter_bar.compoent->Render()
-                    },
-                    {
-                        window(text(title), vbox({
-                            hbox({
-                                text(file_view.title),
-                                this->file_time_drop->Render() | flex,
-                                this->file_sorted_drop->Render(),
-                            }),
-                            view->Render() | frame | size(HEIGHT, EQUAL, 28),
-                        }))
-                    }, {
-                        text(fmt::format("info: {}", home_page_info)) | border
-                    }        
-                });
-            } else {
-                return gridbox({
-                    {
-                        text(fmt::format("Current Dir: {}", current_dir.string())) | bold,
-                    },
-                    {
-                        hbox({
-                            window(text("Target File"), search_bar.component->Render()) ,
-                            this->button_filter_bar->Render() | align_right,
-                        })
-                    }, 
-                    {
-                        window(text(title), vbox({
-                            hbox({
-                                text(file_view.title),
-                                this->file_time_drop->Render() | flex,
-                                this->file_sorted_drop->Render(),
-                            }),
-                            view->Render() | frame | size(HEIGHT, EQUAL, 28),
-                        }))
-                    }, {
-                        text(fmt::format("info: {}", home_page_info)) | border
-                    }        
-                });
+                elements.push_back(this->filter_bar.compoent->Render());
             }
+
+            elements.push_back(
+                window(text(title), vbox({
+                    hbox({
+                        text(fmt::format("  {: <40}", "Name")),
+                        this->file_sorted_drop->Render(),
+                        this->file_time_drop->Render(),
+                    }),
+                    view->Render() | frame | size(HEIGHT, EQUAL, 28),
+                }))
+            );
+            elements.push_back(
+                    text(fmt::format("info: {}", home_page_info)) | border
+            );
+            return vbox(elements);
         });
 
         this->component |= Modal(dialog.component, &dialog.shown); 
