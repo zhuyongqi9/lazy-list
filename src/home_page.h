@@ -290,44 +290,44 @@ public:
 
         this->view = Menu(&file_view.table, &file_view.selected, option);
 
-        this->file_time_drop = Dropdown({
-            .radiobox = {&this->file_time_type, &this->file_time_selected},
-            .transform =
-                [](bool open, Element checkbox, Element radiobox) {
-                if (open) {
-                  return vbox({
-                      checkbox | inverted,
-                      radiobox | vscroll_indicator | frame |
-                          size(HEIGHT, LESS_THAN, 10),
-                      filler(),
-                  });
-                } else {
-                    return vbox({
-                        checkbox,
-                        filler(),
-                    });
-                }
-            },
-        });
+        {
+            auto option = CheckboxOption::Simple();
+            option.transform = [](const EntryState& s) {
+                auto suffix = std::string(s.state ? "↓" : "↑");  // NOLINT
+                auto str = fmt::format("{: >5}Size{}","", suffix);
+                auto t = text(str);
+                return t;
+            };
+            this->file_size_checkbox = Checkbox("size", &this->file_size_decreased, option);
+        }
 
-        this->file_sorted_drop = Dropdown({
-            .radiobox = {&this->file_sorted_type, &this->file_sorted_selected},
-            .transform =
-                [](bool open, Element checkbox, Element radiobox) {
-                if (open) {
-                  return vbox({
-                      checkbox | inverted,
-                      radiobox | vscroll_indicator | frame |
-                          size(HEIGHT, LESS_THAN, 10),
-                      filler(),
-                  });
-                }
-                return vbox({
-                    checkbox,
-                    filler(),
-                });
-            },
-        });
+        {
+            auto option = CheckboxOption::Simple();
+            option.transform = [](const EntryState& s) {
+                auto t = text(s.label);
+                return t;
+            };
+            this->file_time_drop = Dropdown({
+                .radiobox = {&this->file_time_type, &this->file_time_selected},
+                .checkbox = option,
+                .transform =
+                    [](bool open, Element checkbox, Element radiobox) {
+                    if (open) {
+                      return vbox({
+                          checkbox | inverted,
+                          radiobox | vscroll_indicator | frame |
+                              size(HEIGHT, LESS_THAN, 10),
+                          filler(),
+                      });
+                    } else {
+                        return vbox({
+                            checkbox,
+                            filler(),
+                        });
+                    }
+                },
+            });
+        }
 
         this->button_filter_bar = Button("Filter", [&]() {
             this->show_filter_bar = !this->show_filter_bar;
@@ -337,8 +337,8 @@ public:
             search_bar.component,
             this->button_filter_bar,
             this->filter_bar.compoent,
+            this->file_size_checkbox,
             this->file_time_drop,
-            this->file_sorted_drop,
             view,
         });
 
@@ -369,12 +369,11 @@ public:
                 } else if (search_bar.text().size() == 0) {
                     file_model.list(current_dir);
 
-                    if (file_sorted_selected == 0) {
+                    if (this->file_size_decreased) {
                         file_model.sorted_by_size(true);
-                    } else if (file_sorted_selected == 1) {
+                    } else {
                         file_model.sorted_by_size(false);
                     }
-
 
                     if (this->show_filter_bar) {
                         this->file_model.filter_file_size(this->filter_bar.min_size * MB, 0);
@@ -403,7 +402,9 @@ public:
                 hbox({
                 window(text("Target File"), search_bar.component->Render()) ,
                     this->button_filter_bar->Render() | align_right,
-            }));
+                }) | size(HEIGHT, EQUAL, 3)
+            );
+
             if (this->show_filter_bar) {
                 elements.push_back(this->filter_bar.compoent->Render());
             }
@@ -412,14 +413,15 @@ public:
                 window(text(title), vbox({
                     hbox({
                         text(fmt::format("  {: <40}", "Name")),
-                        this->file_sorted_drop->Render(),
+                        this->file_size_checkbox->Render(),
+                        text("   "),
                         this->file_time_drop->Render(),
                     }),
-                    view->Render() | frame | size(HEIGHT, EQUAL, 28),
-                }))
+                    view->Render() | frame ,
+                })) | yflex 
             );
             elements.push_back(
-                    text(fmt::format("info: {}", home_page_info)) | border
+                    text(fmt::format("info: {}", home_page_info)) | border | size(HEIGHT, EQUAL, 3)
             );
             return vbox(elements);
         });
@@ -456,9 +458,8 @@ public:
     std::vector<std::string> file_time_type = {"Last Modified Time", "Created Time"};
     int file_time_selected;
 
-    Component file_sorted_drop;
-    std::vector<std::string> file_sorted_type = {"Decrease File size", "Increase file size"};
-    int file_sorted_selected;
+    Component file_size_checkbox;
+    bool file_size_decreased = true;
 
     FilterBar filter_bar;
     Component button_filter_bar;
