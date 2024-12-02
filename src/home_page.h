@@ -238,11 +238,6 @@ public:
 class HomePage {
 public:
     HomePage() {
-        this->show_options = FileEntryView::show_options::list | FileEntryView::show_options::created_time;
-
-        file_model.list(current_dir);
-        file_view.render(file_model, this->show_options);
-
         MenuOption option = MenuOption::Vertical();
 
         option.entries_option.transform = [&] (EntryState state) {
@@ -331,6 +326,7 @@ public:
 
         this->button_filter_bar = Button("Filter", [&]() {
             this->show_filter_bar = !this->show_filter_bar;
+            this->refresh_flag = true;
         });
 
         this->container = Container::Stacked({
@@ -344,60 +340,13 @@ public:
 
 
         this->component = Renderer(container, [&] {
-            std::vector<std::filesystem::directory_entry> res;
-            this->show_options = 0;
-            this->show_options |= FileEntryView::show_options::file_size;
-            
-            this->update_file_time_show_options();
-
-            try {
-                if (search_bar.text().length() > 0) {
-                    int search_options;
-                    if (search_bar.regex()) search_options |= search_options::regex;
-                    else if (search_bar.case_ignored())  search_options |= search_options::caseignored;
-
-                    file_model.search(search_bar.text(), current_dir, search_options);
-
-                    this->show_options |= FileEntryView::show_options::full_path;
-                    if (this->show_filter_bar) {
-                        this->file_model.filter_file_size(this->filter_bar.min_size * MB, 0);
-                        this->show_options |= FileEntryView::show_options::directory_size;
-                    }
-
-                    file_view.render(file_model, this->show_options);
-
-                } else if (search_bar.text().size() == 0) {
-                    file_model.list(current_dir);
-
-                    if (this->file_size_decreased) {
-                        file_model.sorted_by_size(true);
-                    } else {
-                        file_model.sorted_by_size(false);
-                    }
-
-                    if (this->show_filter_bar) {
-                        this->file_model.filter_file_size(this->filter_bar.min_size * MB, 0);
-                        this->show_options |= FileEntryView::show_options::directory_size;
-                    } 
-
-                    file_view.render(file_model, this->show_options);
-                }
-
-            } catch (std::exception &ex) {
-                home_page_info = ex.what();
-            }
-
-
+            if (cur_folder_entry_change() || refresh_flag_change() || search_input_change()) 
+                refresh_file_view();
             std::string title = search_bar.text().size() > 0 ? "Search Results" : "Files";
-
-            std::string file_name_format = fmt::format("{{: <{}.{}}}", FILENAME_LENGTH_MAX, FILENAME_LENGTH_MAX);
-            std::string fileview_title = "  ";
-            fileview_title += fmt::format(file_name_format, "name");
-            fileview_title += fmt::format("{: <10}", "size");
-            fileview_title += "   ";
 
             std::vector<Element> elements(0);
             elements.push_back(text(fmt::format("Current Dir: {}", current_dir.string())) | bold);
+
             elements.push_back(
                 hbox({
                 window(text("Target File"), search_bar.component->Render()) ,
@@ -420,6 +369,7 @@ public:
                     view->Render() | frame ,
                 })) | yflex 
             );
+
             elements.push_back(
                     text(fmt::format("info: {}", home_page_info)) | border | size(HEIGHT, EQUAL, 3)
             );
@@ -427,28 +377,26 @@ public:
         });
 
         this->component |= Modal(dialog.component, &dialog.shown); 
-        this->component |= CatchEvent([&](Event event) {
-        if (event == Event::Character('x')) {
-            try {
-                auto dir = file_model.file_entry[file_view.selected];
-                home_page_info = dir.path().filename().string() + "test";
-                dialog.udpate_path(dir);
-                dialog.shown = true;
-            } catch (std::exception &e) {
-                home_page_info = e.what();
-            }
-            return true;
-        }
 
-        if (event ==  Event::Special("\x1B")) {
-            if (dialog.shown) return false;
-            else {
-                current_dir = current_dir.parent_path();
-                return true;
+        this->component |= CatchEvent([&](Event event) {
+            if (event == Event::Character('x')) {
+                try {
+                    auto dir = file_model.file_entry[file_view.selected];
+                    home_page_info = dir.path().filename().string() + "test";
+                    dialog.udpate_path(dir);
+                    dialog.shown = true;
+                } catch (std::exception &e) {
+                    home_page_info = e.what();
+                }
+            } else if (event ==  Event::Special("\x1B")) {
+                if (dialog.shown) return false;
+                else {
+                    current_dir = current_dir.parent_path();
+                    return true;
+                }
             }
-        }
-        return false;
-    });
+            return false;
+        });
     }
 
     Component component;
@@ -465,6 +413,8 @@ public:
     Component button_filter_bar;
     bool show_filter_bar;
     
+    bool refresh_flag = false;
+
     std::filesystem::path current_dir =  std::filesystem::current_path();
 
     SearchBar search_bar = SearchBar();
@@ -474,7 +424,28 @@ public:
     FileOperationDialog dialog = FileOperationDialog(this->current_dir);
     int show_options;
 
+    std::time_t cur_dir_m_time = 0;
+
 private:
+    std::string last_search_input = "";
+    bool search_input_change() {
+        if (last_search_input != this->search_bar.text()) {
+            last_search_input = this->search_bar.text();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    bool refresh_flag_change() {
+        if (this->refresh_flag) {
+            this->refresh_flag = false;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     void update_file_time_show_options() {
         switch (file_time_selected) {
             case 0:
@@ -486,5 +457,64 @@ private:
             default:
                 this->show_options |= FileEntryView::show_options::last_modified_time;
         }
+    }
+
+    bool cur_folder_entry_change() {
+        struct stat s;
+        if (stat(current_dir.string().c_str(), &s) == 0) {
+            std::time_t time = s.st_mtime;
+            if (time != cur_dir_m_time) {
+                this->cur_dir_m_time = time;
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    void refresh_file_view() {
+        this->show_options = 0;
+        this->show_options |= FileEntryView::show_options::file_size;
+        this->update_file_time_show_options();
+
+        try {
+            if (search_bar.text().length() > 0) {
+                int search_options;
+                if (search_bar.regex()) search_options |= search_options::regex;
+                else if (search_bar.case_ignored())  search_options |= search_options::caseignored;
+
+                file_model.search(search_bar.text(), current_dir, search_options);
+
+                this->show_options |= FileEntryView::show_options::full_path;
+                if (this->show_filter_bar) {
+                    this->file_model.filter_file_size(this->filter_bar.min_size * MB, 0);
+                    this->show_options |= FileEntryView::show_options::directory_size;
+                }
+
+                file_view.render(file_model, FileEntryView::show_options::search);
+
+            } else if (search_bar.text().size() == 0) {
+                file_model.list(current_dir);
+
+                if (this->file_size_decreased) {
+                    file_model.sorted_by_size(true);
+                } else {
+                    file_model.sorted_by_size(false);
+                }
+
+                if (this->show_filter_bar) {
+                    this->file_model.filter_file_size(this->filter_bar.min_size * MB, 0);
+                    this->show_options |= FileEntryView::show_options::directory_size;
+                } 
+
+                file_view.render(file_model, this->show_options);
+            }
+
+        } catch (std::exception &ex) {
+            home_page_info = ex.what();
+        }
+        
     }
 };
