@@ -218,7 +218,10 @@ public:
                 } catch (std::out_of_range &e) {
                     this->min_size = 0;
                 }
+            } else {
+                this->min_size = 0;
             }
+
             return hbox({
                 text(" File size") | color(Color::Red),
                 text(" >= ")| color(Color::Red),
@@ -340,7 +343,11 @@ public:
 
 
         this->component = Renderer(container, [&] {
-            if (cur_folder_entry_change() || refresh_flag_change() || search_input_change()) 
+            if (cur_folder_entry_change() 
+            || refresh_flag_change() 
+            || search_input_change()
+            || min_size_change()
+            ) 
                 refresh_file_view();
             std::string title = search_bar.text().size() > 0 ? "Search Results" : "Files";
 
@@ -428,6 +435,16 @@ public:
 
 private:
     std::string last_search_input = "";
+    uint64_t last_min_size = 0;
+    bool min_size_change() {
+        if (this->filter_bar.min_size != last_min_size) {
+            last_min_size = this->filter_bar.min_size;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     bool search_input_change() {
         if (last_search_input != this->search_bar.text()) {
             last_search_input = this->search_bar.text();
