@@ -168,6 +168,7 @@ public:
                 config.store();
                 bookmark_page_info = "Folder removed successfully";
             } catch (std::runtime_error &e) {
+                spdlog::error(e.what());
                 bookmark_page_info = "failed to remove, e: " + std::string(e.what());
             }
         }}

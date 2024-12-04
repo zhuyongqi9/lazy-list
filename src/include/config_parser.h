@@ -9,11 +9,13 @@
 #include <fmt/core.h>
 #include <fstream>
 #include <filesystem>
+#include "global_var.h"
+#include <spdlog/spdlog.h>
 
 class Config {
 public:
     Config() {
-        std::fstream s("config.txt", std::fstream::app);
+        std::fstream s(CONFIG_PATH, std::fstream::app);
         this->parse();
     } 
 
@@ -44,7 +46,7 @@ public:
     }
 
     int parse() {
-        std::fstream config("config.txt", std::fstream::in);
+        std::fstream config(CONFIG_PATH, std::fstream::in);
         if (config) {
             std::string line;
             if (!(config >> line)) return -1;
@@ -73,11 +75,13 @@ public:
         for(auto &item : bookmark) s += item + ";";
         temp += fmt::format("bookmark={}\n", s);
         
-        std::fstream out("config.bak", std::fstream::out|std::fstream::trunc);
+        std::fstream out(CONFIG_PATH_TMP, std::fstream::out|std::fstream::trunc);
+        out.flush();
         if (out) {
             out << temp;
+            out.flush();
             std::error_code ec;
-            std::filesystem::rename("config.bak", "config.txt", ec);
+            std::filesystem::rename(CONFIG_PATH_TMP, CONFIG_PATH, ec);
             if (ec.value() != 0) {
                 throw std::runtime_error("failed to save config file, error:" + ec.message());
             }
