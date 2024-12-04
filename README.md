@@ -55,3 +55,8 @@ mkdir build
 cd build
 cmake --build . --target lazylist -j 16
 ```
+
+
+## Acknowledgments  
+This project uses the following third-party libraries:  
+- [FTXUI](https://github.com/ArthurSonzogni/FTXUI) - Licensed under the MIT License.  
