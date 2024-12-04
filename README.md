@@ -22,7 +22,7 @@
 
 Lazylist is the ultimate tool for users who want the power of Linux without the steep learning curve of shell commands. Simplify your workflow and protect your files with **Lazylist**!  
 ## Install
-Currently only macos and ubuntu provided compiled binary
+Currently only provide macos and ubuntu compiled binary
 
 https://github.com/zhuyongqi9/lazylist/releases/tag/1.1.1
 
