@@ -1,3 +1,5 @@
+![Lazylist Introduction](https://github.com/zhuyongqi9/lazylist/raw/master/image/intro.gif)
+
 # Lazylist: Your Terminal-Based File Management Solution  
 
 *Imagine This Scenario，You’ve just joined a new company or research lab. One day, an IT veteran introduces you to something called **Linux**—an entirely different world of operating systems. They explain that you’ll need a magical tool called **SSH** to access it.*  
