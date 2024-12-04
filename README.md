@@ -11,5 +11,5 @@ brew install cmake spdlog
 ### Ubuntu
 **Install dependency libraries**
 ```
-sudo apt install libspdlog1.12
+sudo apt install cmake libspdlog-dev
 ```

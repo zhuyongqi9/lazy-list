@@ -1,4 +1,3 @@
-#include <cmath>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/component.hpp>

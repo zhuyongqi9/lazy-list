@@ -1,8 +1,5 @@
-#include <__filesystem/path.h>
-#include <chrono>
 #include <functional>
 #include <stdexcept>
-#include <streambuf>
 #include <string>
 #include <exception>
 #include <ftxui/component/component_base.hpp>
@@ -20,7 +17,6 @@
 #include <fmt/format.h>
 #include <fmt/chrono.h>
 #include <vector>
-#include "MESSAGE.h"
 #include "file_utils.h" 
 #include "global_var.h"
 #include "search_bar.h"

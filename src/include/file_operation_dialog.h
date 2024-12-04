@@ -5,7 +5,6 @@
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/event.hpp>
 #include <stdexcept>
-#include <unordered_map>
 #include <fmt/format.h>
 #include <file_operation.h>
 #include <vector>

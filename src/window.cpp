@@ -14,8 +14,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "MESSAGE.h"
-#include "search_bar.h"
 #include "bookmarks_page.h"
 #include "recycle_bin_page.h"
 #include "file_operation_dialog.h"
