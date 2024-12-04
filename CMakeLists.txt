@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.31)
+cmake_minimum_required(VERSION 3.28)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -28,10 +28,10 @@ link_libraries(spdlog::spdlog_header_only)
 
 add_executable(main src/main.cpp)
 
-add_executable(window src/window.cpp)
+add_executable(lazylist src/window.cpp)
 include_directories(src/include)
 target_link_libraries(
-  window
+  lazylist
   PRIVATE ftxui::screen
   PRIVATE ftxui::dom
   PRIVATE ftxui::component 
