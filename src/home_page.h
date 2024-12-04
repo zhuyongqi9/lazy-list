@@ -291,7 +291,8 @@ public:
 
         {
             auto option = CheckboxOption::Simple();
-            option.transform = [](const EntryState& s) {
+            option.transform = [&](const EntryState& s) {
+                this->refresh_flag = true;
                 auto suffix = std::string(s.state ? "↓" : "↑");  // NOLINT
                 auto str = fmt::format("{: >5}Size{}","", suffix);
                 auto t = text(str);
@@ -380,6 +381,9 @@ public:
 
             elements.push_back(
                     text(fmt::format("info: {}", home_page_info)) | border | size(HEIGHT, EQUAL, 3)
+            );
+            elements.push_back(
+                    text("[x]open menu; [q]quit; [Enter]enter into selected dir; [Esc]enter into parent path") |  size(HEIGHT, EQUAL, 1) | color(Color::Blue)
             );
             return vbox(elements);
         });
