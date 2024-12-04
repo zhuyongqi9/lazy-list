@@ -20,7 +20,7 @@
 #include "recycle_bin_page.h"
 #include "file_operation_dialog.h"
 #include <spdlog/spdlog.h>
-#include "spdlog/sinks/basic_file_sink.h"
+#include "spdlog/sinks/rotating_file_sink.h"
 #include "config_parser.h"
 #include "home_page.h"
 #include "config_page.h"
@@ -47,9 +47,12 @@ void go_to_homepage() {
 
 int main() {
     spdlog::set_level(spdlog::level::debug);
+
     std::shared_ptr<spdlog::logger> logger;
     try {
-        logger = spdlog::basic_logger_mt("logger", "logs/debug_log.txt");
+        auto max_size = MB * 5;
+        auto max_files = 3;
+        logger = spdlog::rotating_logger_mt("logger", home + "/.lazylist/log/debug_log.txt", max_size, max_files);
         logger->flush_on(spdlog::level::debug); 
         spdlog::set_default_logger(logger);
     } catch (const spdlog::spdlog_ex &ex) {
@@ -98,7 +101,7 @@ int main() {
 
         screen.Loop(component);
     } catch (std::exception &e) {
-        logger->debug("{}", e.what());
+        logger->error("{}", e.what());
     }
 
     return 0;

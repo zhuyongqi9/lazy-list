@@ -51,6 +51,18 @@ target_include_directories(
   PRIVATE src/include
 )
 
+add_executable(test_tmp test/tmp.cpp)
+target_include_directories(
+  test_tmp
+  PRIVATE src/include
+)
+
+add_executable(find_large_file test/find_large_file.cpp)
+target_include_directories(
+  test_tmp
+  PRIVATE src/include
+)
+
 target_link_libraries(
   test_file_operation
   PRIVATE ftxui::screen
