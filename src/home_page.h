@@ -304,8 +304,8 @@ public:
                 return t;
             };
             this->file_time_drop = Dropdown({
-                .radiobox = {&this->file_time_type, &this->file_time_selected},
                 .checkbox = option,
+                .radiobox = {&this->file_time_type, &this->file_time_selected},
                 .transform =
                     [](bool open, Element checkbox, Element radiobox) {
                     if (open) {
