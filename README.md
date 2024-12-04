@@ -1,5 +1,7 @@
 ## Install
+Currently only macos and ubuntu provided compiled binary
 
+https://github.com/zhuyongqi9/lazylist/releases/tag/1.1.1
 
 ## How to build
 
