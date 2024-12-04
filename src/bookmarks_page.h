@@ -1,3 +1,4 @@
+#include <cmath>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/component.hpp>
@@ -8,6 +9,7 @@
 #include <global_var.h>
 #include <stdexcept>
 #include "config_parser.h"
+#include <spdlog/spdlog.h>
 
 extern Config config;
 
@@ -135,10 +137,10 @@ public:
             this->model.list();
 
             return vbox({
-                this->file_entry->Render() |  size(HEIGHT, ftxui::GREATER_THAN, 30), 
+                this->file_entry->Render() | frame | yflex, 
                 filler(),
-                text(fmt::format("info: {}", bookmark_page_info)) | border,
-            });
+                text(fmt::format("info: {}", bookmark_page_info)) | border | size(HEIGHT, EQUAL, 3) , 
+            }) | xflex; 
         });
 
         this->component |= CatchEvent([&](Event event) {
