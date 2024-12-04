@@ -50,6 +50,8 @@ int main() {
     std::shared_ptr<spdlog::logger> logger;
     try {
         logger = spdlog::basic_logger_mt("logger", "logs/debug_log.txt");
+        logger->flush_on(spdlog::level::debug); 
+        spdlog::set_default_logger(logger);
     } catch (const spdlog::spdlog_ex &ex) {
         fmt::println("Log init failed: {}", ex.what());
     }

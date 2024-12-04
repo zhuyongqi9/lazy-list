@@ -16,6 +16,7 @@ class ConfigPage {
 public:
     ConfigPage() {
         this->input_recycle_bin_path = Input(&tmp.recycle_bin_path, &tmp.recycle_bin_path); 
+        this->str_recycle_bin_max_size  = std::to_string(tmp.recycle_bin_max_size);
         this->recycle_bin_max_size = Input(&this->str_recycle_bin_max_size, std::to_string(tmp.recycle_bin_max_size));
 
 
@@ -33,31 +34,31 @@ public:
         this->component = Renderer(this->container, [&]() {
             return vbox({
                     hbox({
-                        text("Recycle bin path") | size(WIDTH, EQUAL, 20) ,
+                        text("Recycle bin path") | size(WIDTH, EQUAL, 25) ,
                         separator(),
                         this->input_recycle_bin_path->Render() |  size(WIDTH, ftxui::LESS_THAN, 40)|xflex,
                     }) | xflex,
                     separator(),
                     hbox({
-                        text("Recycle bin max_size(GB)") | size(WIDTH, EQUAL,20) ,
+                        text("Recycle bin max_size(GB)") | size(WIDTH, EQUAL,25) ,
                         separator(),
                         this->recycle_bin_max_size->Render() |  size(WIDTH, ftxui::LESS_THAN, 40)|xflex,
                     }) | xflex,
                     separator(),
                     this->save_button->Render() | size(WIDTH, EQUAL, 6) | center,
                     hbox()| yflex,
-                    text(fmt::format("info: {}", config_page_info)) | border,
-            }) | xflex | border;
+                    text(fmt::format("info: {}", config_page_info)) | border | size(HEIGHT, EQUAL, 3),
+            }) | xflex;
 
         }) ;    
     }
 
     void save() {
-        this->tmp.recycle_bin_max_size = std::stoll(str_recycle_bin_max_size);
-        config.recycle_bin_path = tmp.recycle_bin_path;
-        config.recycle_bin_max_size = this->tmp.recycle_bin_max_size;
-
         try {
+            this->tmp.recycle_bin_max_size = std::stoll(str_recycle_bin_max_size);
+            config.recycle_bin_path = tmp.recycle_bin_path;
+            config.recycle_bin_max_size = this->tmp.recycle_bin_max_size;
+
             config.store();
             config.refresh();
             config_page_info = "Config saved successfully";

@@ -25,7 +25,7 @@ public:
 
     void list(std::filesystem::path &path) {
         try {
-            file_entry = list_all_no_cur(path);
+            file_entry = list_all(path, 0);
         } catch (std::filesystem::filesystem_error &e) {
             file_entry.clear();
         }
@@ -57,17 +57,6 @@ public:
                 s += fmt::format("{: <40}", item.path().filename().string());
             }
 
-            if (item.is_regular_file()) {
-                if (options & file_size) {
-                    std::string ssize = formatted_file_size(item.path());
-                    s += ssize;
-                }
-            } else if (item.is_directory()) {
-                if (options & show_options::directory_size) {
-                    std::string ssize = formatted_directory_size(item);
-                    s += ssize;
-                }
-            }
             table.push_back(s);
         }
 
@@ -131,10 +120,10 @@ public:
             this->view.render(this->model, ReFileEntryView::list | ReFileEntryView::directory_size);
 
             return vbox({
-                this->file_entry->Render() |  size(HEIGHT, ftxui::GREATER_THAN, 30), 
+                this->file_entry->Render() | frame | yflex, 
                 filler(),
-                text(fmt::format("info: {}", recycle_bin_page_info)) | border,
-            });
+                text(fmt::format("info: {}", recycle_bin_page_info)) | border | size(HEIGHT, EQUAL, 3),
+            }) | xflex;
         });
 
         this->component |= Modal(dialog.component, &dialog.shown);

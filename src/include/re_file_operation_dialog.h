@@ -98,7 +98,7 @@ private:
     std::filesystem::path src;
 
     std::vector<std::pair<std::string, std::function<void()>>> handle_map = {
-        {fmt::format("{: <8}Restore File", "C"), [&]()->void{
+        {fmt::format("{: <8}Restore File", ""), [&]()->void{
             dst.shown = true;
             auto str = this->src.filename().string();
             std::for_each(str.begin(), str.end(), [](char &c){
@@ -119,7 +119,7 @@ private:
                 this->shown = false;
             };
         }},
-        {fmt::format("{: <8}Permanently deleted the file.", "c"), [&]()->void{
+        {fmt::format("{: <8}Permanently deleted the file.", ""), [&]()->void{
             auto op = DeleteFileOperation(this->src);
             try {
                 op.perform();
@@ -129,7 +129,7 @@ private:
             }
             this->shown = false;
         }},
-        {fmt::format("{: <8}Empty Recycle Bin", "c"), [&]()->void{
+        {fmt::format("{: <8}Empty Recycle Bin", ""), [&]()->void{
             try {
                 auto path = this->src.parent_path();
                 auto op = DeleteFileOperation(path);

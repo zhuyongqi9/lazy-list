@@ -26,6 +26,7 @@
 #include "search_bar.h"
 #include "file_operation_dialog.h"
 #include <sys/stat.h>
+#include <spdlog/spdlog.h>
 
 std::string home_page_info;
 
@@ -492,6 +493,7 @@ private:
     }
 
     void refresh_file_view() {
+        spdlog::debug("refresh  file view");
         this->show_options = 0;
         this->show_options |= FileEntryView::show_options::file_size;
         this->update_file_time_show_options();

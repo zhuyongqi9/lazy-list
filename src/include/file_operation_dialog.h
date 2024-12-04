@@ -128,7 +128,7 @@ private:
     std::filesystem::path src;
 
     std::vector<std::pair<std::string, std::function<void()>>> handle_map = {
-        {fmt::format("{: <8}Create File", "c"), [&]()->void{
+        {fmt::format("{: <8}Create File", ""), [&]()->void{
             dst.shown = true;
             dst.f = [&](std::string &dst) {
                 try {
@@ -142,7 +142,7 @@ private:
             };
         }},
 
-        {fmt::format("{: <8}Create Folder", "C"), [&]()->void{
+        {fmt::format("{: <8}Create Folder", ""), [&]()->void{
             dst.shown = true;
             dst.f = [&](std::string &dst) {
                 try {
@@ -156,7 +156,7 @@ private:
             };
         }},
 
-        {fmt::format("{: <8}Rename File", "r"), [&]()->void{
+        {fmt::format("{: <8}Rename File", ""), [&]()->void{
             dst.shown = true;
             dst.f = [&](std::string &dst) {
                 try {
@@ -171,7 +171,7 @@ private:
             };
         }},
 
-        {fmt::format("{: <8}Copy File To", "p"), [&]()->void{
+        {fmt::format("{: <8}Copy File To", ""), [&]()->void{
             dst.shown = true;
             dst.message = this->src.string();
             dst.f = [&](std::string &dst) {
@@ -186,7 +186,7 @@ private:
             };
         }},
 
-        {fmt::format("{: <8}Move File To", "m"), [&]()->void{
+        {fmt::format("{: <8}Move File To", ""), [&]()->void{
             dst.shown = true;
             dst.message = this->src.string();
             dst.f = [&](std::string &dst) {
@@ -201,7 +201,7 @@ private:
             };
         }},
 
-        {fmt::format("{: <8}Delete File", "D"), [&]()->void{
+        {fmt::format("{: <8}Delete File", ""), [&]()->void{
             auto op = SoftDeleteFileOperation(this->src);
             try {
                 op.perform();
@@ -212,7 +212,7 @@ private:
             this->shown = false;
         }},
 
-        {fmt::format("{: <8}Compress File", "z"), [&]()->void{
+        {fmt::format("{: <8}Compress File", ""), [&]()->void{
             dst.shown = true;
             auto path = this->src.parent_path() / fmt::format("{}.zip", filename_without_ext(this->src));
             dst.message = path.string();
@@ -227,7 +227,7 @@ private:
                 this->shown = false;
             };
         }},
-        {fmt::format("{: <8}Extract File", "d"), [&]()->void{
+        {fmt::format("{: <8}Extract File", ""), [&]()->void{
             dst.shown = true;
             auto path = this->src.parent_path() / fmt::format("{}", filename_without_ext(this->src));
             dst.message = path.string();
@@ -244,7 +244,7 @@ private:
             };
         }},
 
-        {fmt::format("{: <8}Add to bookmark", "d"), [&]()->void{
+        {fmt::format("{: <8}Add to bookmark", ""), [&]()->void{
             if (std::filesystem::directory_entry(src).is_directory()) {
                 try {
                     config.bookmark.push_back(src);

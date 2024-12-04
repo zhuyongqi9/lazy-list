@@ -30,7 +30,7 @@ static std::string formatted_size(uint64_t size) {
 
 static uint64_t cacl_directory_size(const std::filesystem::path &path) {
     uint64_t res = 0;
-    auto it = std::filesystem::recursive_directory_iterator(path);
+    auto it = std::filesystem::recursive_directory_iterator(path, std::filesystem::directory_options::skip_permission_denied );
     for (auto start = it; it != std::filesystem::end(it); it++) {
         if (it->is_regular_file())
             res += (*it).file_size();
@@ -61,7 +61,19 @@ std::string formatted_file_size(const std::filesystem::path &path) {
 }
 
 std::vector<std::string> skipped_file = {
+    #if __APPLE__
     "Photos Library.photoslibrary",
+    "Library",
+    ".Trash",
+    "/usr/sbin/weakpass_edit",
+    "/var/networkd/db",
+    "/var/OOPJit",
+    "/var/db",
+    "/var/folders",
+    "/var/protected",
+    "/Volumes",
+    "/System/Volumes/Data/private/var",
+    #endif
 };
 
 enum search_options {
@@ -69,8 +81,10 @@ enum search_options {
     caseignored = 1 << 2,
 };
 
-static bool skipped(std::string &path) {
-    for (auto &item : skipped_file) if (item == path) return true;
+static bool skipped(const std::filesystem::path &path) {
+    for (auto &item : skipped_file) 
+        if (item == path.filename() || item == path.string()) 
+            return true;
     return false;
 }
 
@@ -89,7 +103,7 @@ std::vector<std::filesystem::directory_entry> search_file(std::string &name, std
         for(auto it = file; it != std::filesystem::end(file); it++) {
             const std::filesystem::directory_entry &entry = *it;
             std::string file_name = entry.path().filename().string();
-            if (skipped(file_name)) {
+            if (skipped(it->path())) {
                 it.disable_recursion_pending();
                 continue;
             } else if (file_name.size() > 0 && file_name[0] == '.') {
