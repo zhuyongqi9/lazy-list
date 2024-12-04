@@ -26,7 +26,6 @@ if(NOT TARGET spdlog)
 endif()
 link_libraries(spdlog::spdlog_header_only)
 
-add_executable(main src/main.cpp)
 
 add_executable(lazylist src/window.cpp)
 include_directories(src/include)

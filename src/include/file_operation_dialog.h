@@ -250,6 +250,7 @@ private:
                     config.store();
                     home_page_info = "Successfully added to Bookmarks";
                 } catch (std::runtime_error &e) {
+                    spdlog::error(e.what());
                     home_page_info = fmt::format("failed to add to bookmark, e:{}" , e.what());
                 }
                 this->shown = false;

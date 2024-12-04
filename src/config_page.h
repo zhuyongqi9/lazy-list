@@ -63,6 +63,7 @@ public:
             config.refresh();
             config_page_info = "Config saved successfully";
         } catch (std::runtime_error &e) {
+            spdlog::error(e.what());
             config_page_info = "Failed to save config, e: " + std::string(e.what());
         }
     }
