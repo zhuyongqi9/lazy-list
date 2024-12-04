@@ -84,6 +84,7 @@ int main() {
                 tab_menu->Render() | size(ftxui::WIDTH, ftxui::GREATER_THAN, 20),
                 separator(),
                 tab_container->Render(),
+
             }) | border;
         });
 

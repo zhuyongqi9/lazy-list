@@ -15,7 +15,7 @@ extern Config config;
 using namespace ftxui;
 
 //=MESSAGE===================
-static const std::string TITLE = "Selected file: \"{}\" <Esc>";
+static const std::string TITLE = "Selected file: \"{}\" [Esc]";
 //=====================================
 
 extern std::string home_page_info;
@@ -92,7 +92,7 @@ public:
 
         component = Renderer(container, [&]() {
             return vbox ({
-                window(text(fmt::format(TITLE, this->src.filename().string())+ std::to_string(this->selected))  | color(Color::Green), menu->Render()),
+                window(text(fmt::format(TITLE, this->src.filename().string()))  | color(Color::Green), menu->Render()),
             }) | center;
         });
 
