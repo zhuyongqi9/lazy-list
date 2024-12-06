@@ -26,6 +26,12 @@ Currently only provide macos and ubuntu compiled binary
 
 https://github.com/zhuyongqi9/lazylist/releases/tag/1.1.1
 
+**User Manul**
+
+https://github.com/zhuyongqi9/lazylist/wiki/User-Manul
+
+*In fact, Lazylist is simple enough, you dont't need to read this user manul*
+
 ## How to build
 
 ### Mac OS
