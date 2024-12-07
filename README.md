@@ -45,6 +45,7 @@ brew install cmake spdlog
 ```
 mkdir build
 cd build
+cmake ../
 cmake --build . --target lazylist -j 16
 ```
 
@@ -59,6 +60,7 @@ sudo apt install cmake libspdlog-dev
 ```
 mkdir build
 cd build
+cmake ../
 cmake --build . --target lazylist -j 16
 ```
 
